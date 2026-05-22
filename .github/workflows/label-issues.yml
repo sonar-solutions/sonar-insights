@@ -1,0 +1,37 @@
+name: Label issues
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body ?? '';
+
+            const match = body.match(/###\s*Type\s*\n+([^\n]+)/);
+            if (!match) return;
+
+            const labels = ['feedback'];
+
+            const typeLabel = {
+              'Bug report':      'bug',
+              'Question':        'question',
+              'Feature request': 'enhancement',
+              'Other':           'other',
+            }[match[1].trim()];
+
+            if (typeLabel) labels.push(typeLabel);
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.payload.issue.number,
+              labels,
+            });

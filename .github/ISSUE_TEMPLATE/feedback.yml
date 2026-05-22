@@ -1,0 +1,50 @@
+name: Feedback & Questions
+description: Report an issue, ask a question, or share feedback about this project.
+title: "[Feedback] "
+labels: []
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      description: What kind of feedback is this?
+      options:
+        - Bug report
+        - Question
+        - Feature request
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe your issue, question, or feedback as clearly as possible.
+      placeholder: What happened, or what would you like to know?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce (for bugs)
+      description: If this is a bug, list the steps to reproduce it. Leave blank otherwise.
+      placeholder: |
+        1. Run `go run main.go ...`
+        2. Observe ...
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior (for bugs)
+      description: What did you expect to happen?
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Relevant environment details.
+      placeholder: |
+        - Go version: (e.g. go1.22.0)
+        - OS: (e.g. macOS 14, Ubuntu 22.04)

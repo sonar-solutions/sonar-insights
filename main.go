@@ -1,8 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"os"
+
+	"github.com/lfrystak/sonar-insights/cmd"
+)
 
 func main() {
-    fmt.Println("Hello, World!")
-    fmt.Println("Greetings from go-sandbox.")
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }

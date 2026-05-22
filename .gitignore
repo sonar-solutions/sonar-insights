@@ -36,3 +36,4 @@ dist/
 # Local development files
 .claude
 .mcp.json
+prompt-draft.md

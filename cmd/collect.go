@@ -8,12 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	collectURL    string
-	collectToken  string
-	collectOutDir string
-)
-
 var collectCmd = &cobra.Command{
 	Use:   "collect [targets...]",
 	Short: "Fetch raw data from SonarQube and write to a local directory",
@@ -22,14 +16,17 @@ var collectCmd = &cobra.Command{
 }
 
 func init() {
-	collectCmd.Flags().StringVar(&collectURL, "url", "", "SonarQube base URL (env: SONAR_HOST_URL, default: https://sonarcloud.io)")
-	collectCmd.Flags().StringVar(&collectToken, "token", "", "SonarQube authentication token (env: SONAR_TOKEN)")
-	collectCmd.Flags().StringVar(&collectOutDir, "out-dir", "./sonar-data/", "directory to write collected data")
+	collectCmd.Flags().String("url", "", "SonarQube base URL (env: SONAR_HOST_URL, default: https://sonarcloud.io)")
+	collectCmd.Flags().String("token", "", "SonarQube authentication token (env: SONAR_TOKEN)")
+	collectCmd.Flags().String("out-dir", "./sonar-data/", "directory to write collected data")
 	rootCmd.AddCommand(collectCmd)
 }
 
 func runCollectCmd(cmd *cobra.Command, args []string) error {
-	return runCollect(args, collectURL, collectToken, collectOutDir)
+	url, _ := cmd.Flags().GetString("url")
+	token, _ := cmd.Flags().GetString("token")
+	outDir, _ := cmd.Flags().GetString("out-dir")
+	return runCollect(args, url, token, outDir)
 }
 
 func runCollect(targets []string, url, token, outDir string) error {

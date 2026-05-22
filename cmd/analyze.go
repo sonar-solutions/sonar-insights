@@ -7,11 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	analyzeDir        string
-	analyzeReportName string
-)
-
 var analyzeCmd = &cobra.Command{
 	Use:   "analyze [targets...]",
 	Short: "Read collected data from disk and generate an HTML report",
@@ -20,13 +15,15 @@ var analyzeCmd = &cobra.Command{
 }
 
 func init() {
-	analyzeCmd.Flags().StringVar(&analyzeDir, "dir", "./sonar-data/", "directory containing collected data")
-	analyzeCmd.Flags().StringVar(&analyzeReportName, "report-name", "sonar-insights-report", "output report name (without extension)")
+	analyzeCmd.Flags().String("dir", "./sonar-data/", "directory containing collected data")
+	analyzeCmd.Flags().String("report-name", "sonar-insights-report", "output report name (without extension)")
 	rootCmd.AddCommand(analyzeCmd)
 }
 
 func runAnalyzeCmd(cmd *cobra.Command, args []string) error {
-	return runAnalyze(args, analyzeDir, analyzeReportName)
+	dir, _ := cmd.Flags().GetString("dir")
+	reportName, _ := cmd.Flags().GetString("report-name")
+	return runAnalyze(args, dir, reportName)
 }
 
 func runAnalyze(targets []string, dir, reportName string) error {

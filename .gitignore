@@ -38,3 +38,4 @@ dist/
 .claude/hooks
 .mcp.json
 prompt-draft.md
+sonar-data

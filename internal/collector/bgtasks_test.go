@@ -155,6 +155,75 @@ func TestCollectBgTasks_401(t *testing.T) {
 	}
 }
 
+func TestCollectBgTasks_403(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	err := CollectBgTasks(makeInstance(srv.URL), t.TempDir(), 5, noopLogger())
+	if err == nil {
+		t.Fatal("expected error for 403, got nil")
+	}
+}
+
+func TestCollectBgTasks_UnexpectedStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	err := CollectBgTasks(makeInstance(srv.URL), t.TempDir(), 5, noopLogger())
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+}
+
+func TestCollectBgTasks_MalformedJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, "{invalid")
+	}))
+	defer srv.Close()
+
+	err := CollectBgTasks(makeInstance(srv.URL), t.TempDir(), 5, noopLogger())
+	if err == nil {
+		t.Fatal("expected error for malformed JSON, got nil")
+	}
+}
+
+func TestCollectBgTasks_NetworkError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	url := srv.URL
+	srv.Close()
+
+	err := CollectBgTasks(makeInstance(url), t.TempDir(), 5, noopLogger())
+	if err == nil {
+		t.Fatal("expected error for network failure, got nil")
+	}
+}
+
+func TestCollectBgTasks_ConcurrentPageError(t *testing.T) {
+	const total = 600 // 3 pages of 250
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page := 1
+		_, _ = fmt.Sscanf(r.URL.Query().Get("p"), "%d", &page)
+		if page == 1 {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(makeResponse(total, 1))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	err := CollectBgTasks(makeInstance(srv.URL), t.TempDir(), 5, noopLogger())
+	if err == nil {
+		t.Fatal("expected error when concurrent pages fail, got nil")
+	}
+}
+
 func TestCollectBgTasks_VerbatimResponse(t *testing.T) {
 	raw := makeResponse(1, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

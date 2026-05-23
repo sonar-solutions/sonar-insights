@@ -60,16 +60,8 @@ func runCollect(targets []string, url, token, outDir string, parallel int) error
 	}
 	logger.Debug(fmt.Sprintf("detected SonarQube Server version: %s", instance.Version))
 
-	// Safety check: refuse to delete dangerous paths
-	cleaned := filepath.Clean(outDir)
-	if cleaned == "/" || cleaned == "." || cleaned == ".." || cleaned == os.Getenv("HOME") {
-		return fmt.Errorf("refusing to remove dangerous path: %s", outDir)
-	}
-	if err := os.RemoveAll(outDir); err != nil {
-		return fmt.Errorf("remove output directory: %w", err)
-	}
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return fmt.Errorf("create output directory: %w", err)
+	if err := prepareOutputDir(outDir); err != nil {
+		return err
 	}
 
 	if err := writeCollectMetadata(instance, targets, outDir); err != nil {
@@ -85,6 +77,20 @@ func runCollect(targets []string, url, token, outDir string, parallel int) error
 		default:
 			return fmt.Errorf("unknown target: %s", target)
 		}
+	}
+	return nil
+}
+
+func prepareOutputDir(outDir string) error {
+	cleaned := filepath.Clean(outDir)
+	if cleaned == "/" || cleaned == "." || cleaned == ".." || cleaned == os.Getenv("HOME") {
+		return fmt.Errorf("refusing to remove dangerous path: %s", outDir)
+	}
+	if err := os.RemoveAll(outDir); err != nil {
+		return fmt.Errorf("remove output directory: %w", err)
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create output directory: %w", err)
 	}
 	return nil
 }

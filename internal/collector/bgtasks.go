@@ -22,6 +22,12 @@ type pageResult struct {
 	total int
 }
 
+type asyncResult struct {
+	page int
+	body []byte
+	err  error
+}
+
 func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel int, logger *slog.Logger) error {
 	logger.Info("collecting background tasks")
 
@@ -50,13 +56,16 @@ func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel in
 		return nil
 	}
 
-	type result struct {
-		page int
-		body []byte
-		err  error
+	if err := fetchAndWriteRemainingPages(instance, maxExecutedAtEncoded, targetDir, totalPages, parallel, logger); err != nil {
+		return err
 	}
 
-	results := make(chan result, totalPages-1)
+	logger.Info("background task collection complete")
+	return nil
+}
+
+func fetchAndWriteRemainingPages(instance sonarqube.SonarInstance, maxExecutedAtEncoded, targetDir string, totalPages, parallel int, logger *slog.Logger) error {
+	results := make(chan asyncResult, totalPages-1)
 	sem := make(chan struct{}, parallel)
 	var wg sync.WaitGroup
 
@@ -69,16 +78,20 @@ func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel in
 
 			r, err := fetchPage(instance, maxExecutedAtEncoded, page)
 			if err != nil {
-				results <- result{page: page, err: err}
+				results <- asyncResult{page: page, err: err}
 				return
 			}
-			results <- result{page: page, body: r.body}
+			results <- asyncResult{page: page, body: r.body}
 		}(p)
 	}
 
 	wg.Wait()
 	close(results)
 
+	return writePageResults(results, targetDir, totalPages, logger)
+}
+
+func writePageResults(results <-chan asyncResult, targetDir string, totalPages int, logger *slog.Logger) error {
 	var firstErr error
 	for r := range results {
 		if r.err != nil {
@@ -95,13 +108,7 @@ func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel in
 			}
 		}
 	}
-
-	if firstErr != nil {
-		return firstErr
-	}
-
-	logger.Info("background task collection complete")
-	return nil
+	return firstErr
 }
 
 func fetchPage(instance sonarqube.SonarInstance, maxExecutedAtEncoded string, page int) (pageResult, error) {

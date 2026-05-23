@@ -4,7 +4,7 @@ title: Collect Background Tasks (bgtasks)
 author: lfrystak
 date: 2026-05-23
 draft-status: ready
-impl-status: not-started
+impl-status: complete
 prerequisites: []
 ---
 

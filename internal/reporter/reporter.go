@@ -5,7 +5,7 @@ import (
 	"log/slog"
 )
 
-// TODO: import github.com/lfrysta/rptgen once report implementation begins
+// TODO: import github.com/lfrystak/rptgen once report implementation begins
 
 // Generate builds and writes the HTML report to disk.
 func Generate(reportName string, logger *slog.Logger) error {

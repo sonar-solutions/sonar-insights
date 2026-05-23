@@ -3,7 +3,7 @@ The application must follow programming best practices and go-specific best prac
 
 The application should rely on external dependencies minimally. If there is a good fit that would save a lot of trouble, ask for approval to use an external dependency. Approved external dependencies are:
 - `github.com/spf13/cobra`
-- `github.com/lfrysta/rptgen`
+- `github.com/lfrystak/rptgen`
 
 Before committing any code:
 - All test must pass

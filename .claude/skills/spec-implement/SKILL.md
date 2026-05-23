@@ -43,7 +43,7 @@ Write the implementation following these project rules:
 ### Code quality
 - Follow Go best practices and idiomatic Go patterns.
 - Keep the code maintainable, testable, and expandable.
-- Do not introduce new external dependencies without asking. Approved dependencies: `github.com/spf13/cobra`, `github.com/lfrysta/rptgen`.
+- Do not introduce new external dependencies without asking. Approved dependencies: `github.com/spf13/cobra`, `github.com/lfrystak/rptgen`.
 - Write no comments unless the WHY is non-obvious. No docstring blocks.
 
 ### Testing

@@ -19,7 +19,7 @@ on:
 env:
   GO_VERSION: stable
   SQC_ORG: sonar-solutions
-  SQC_PROJECT_KEY: sonar-insights
+  SQC_PROJECT_KEY: sonar-solutions:sonar-insights
   SQC_PROJECT_NAME: sonar-insights
 
 jobs:

@@ -34,6 +34,7 @@ go.work.sum
 dist/
 
 # Local development files
-.claude
+.claude/settings*
+.claude/hooks
 .mcp.json
 prompt-draft.md

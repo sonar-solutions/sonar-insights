@@ -28,10 +28,9 @@ contradicts the existing script, ask for clarification.
 |--------------|-------|
 | SonarQube Server version | `GET /api/server/version` |
 | API endpoint | `GET /api/ce/activity` |
-| Auth         | Bearer token or basic authettication (note below) |
+| Auth         | Bearer token or basic authentication (see Authentication section) |
 | Pagination   | `p` (page) + `ps` (page size) |
-| Key params   | `maxExecutedAt` |
-
+| Key params   | `maxExecutedAt` — hardcoded to `now - 5 minutes` |
 
 ## Data shape
 
@@ -85,53 +84,134 @@ The below snippet is an actual example of data returned by the API.
 }
 ```
 
+## Internal architecture
+
+### SonarQube instance detection
+
+Instance detection runs once before any collection target executes. It is implemented in `internal/sonarqube/`, which is the shared foundation for all current and future targets.
+
+```
+internal/sonarqube/
+  client.go      — NewHTTPClient() *http.Client; the single place to configure timeouts,
+                   and eventually custom TLS certificates.
+  instance.go    — SonarInstance type and Product enum (Server | Cloud).
+  detect.go      — Detect(baseURL, token, client) (SonarInstance, error).
+                   Checks URL against known Cloud patterns first; otherwise calls
+                   GET /api/server/version to confirm Server and parse its version.
+```
+
+`SonarInstance` carries everything a target needs:
+
+```go
+type Product int
+
+const (
+    Server Product = iota
+    Cloud
+)
+
+type SonarInstance struct {
+    Product Product
+    Version string      // semver string (e.g. "10.8.0.100512"); empty for Cloud
+    BaseURL string
+    Token   string
+    Client  *http.Client
+}
+```
+
+The `collect` command:
+1. Builds a shared `*http.Client` via `sonarqube.NewHTTPClient()`.
+2. Calls `sonarqube.Detect(url, token, client)` — returns a `SonarInstance`.
+3. Writes `collect-metadata.json` from the instance.
+4. Passes the instance into each collector: `collector.CollectBgTasks(instance, outDir, parallel, logger)`.
+
+Each collector branches on `instance.Product` where behaviour differs between Server and Cloud.
+
+### HTTP client
+
+All API calls use the single `*http.Client` held in `SonarInstance`. `sonarqube.NewHTTPClient()` is the only place HTTP client configuration lives. Do not create `http.Client` instances elsewhere. This function starts minimal (sane timeouts) and will be extended when custom TLS support is needed.
+
+## Collection metadata
+
+After successful instance detection, the app writes `<out-dir>/collect-metadata.json` before any target runs. If instance detection fails, the app stops and this file is not written.
+
+Schema:
+
+```json
+{
+    "sonarqubeURL": "https://example.sonarqube.com",
+    "collectionTimestamp": "2026-05-23T10:00:00Z",
+    "sonarqubeVersion": "10.8.0.100512",
+    "targets": ["bgtasks"]
+}
+```
+
+- `sonarqubeURL`: the base URL provided by the user.
+- `collectionTimestamp`: UTC timestamp of when the collection run started (RFC 3339).
+- `sonarqubeVersion`: the SonarQube Server version string; `null` when talking to SonarQube Cloud.
+- `targets`: list of collection targets executed in this run.
+
+## Authentication
+
+Authentication is determined automatically based on the detected instance type and version. There is no user-facing switch.
+
+| Condition | Auth method |
+|-----------|-------------|
+| SonarQube Cloud | Bearer token |
+| SonarQube Server ≥ 10.2.\*.\* | Bearer token |
+| SonarQube Server < 10.2.\*.\* | Basic authentication |
+
+For basic authentication, the token is used as the username with an empty password.
+
+## Cloud vs. Server detection
+
+The app assumes it is communicating with SonarQube Server unless the base URL matches one of the following:
+
+- `https://sonarcloud.io`
+- `https://sonarcloud.us`
+- TODO: add staging SonarQube Cloud instance URLs when known.
+
+## Error handling
+
+- **HTTP 401**: log an error indicating the token is invalid or missing, then abort.
+- **HTTP 403**: log an error indicating the token does not have sufficient permissions, then abort.
+- **Version detection failure**: log an error and abort. No collection target will run.
+- **Page fetch failure during parallel collection**: log an error and abort. This should not happen under normal operation.
+- All other unexpected errors must be logged with enough context to diagnose the failure, then abort.
+
 ## Further requirements
 
 Before starting implementation, read the PowerShell script as this is an implementation
 reference.
 
-The collection script must fetch pages in parallel. Five by default, but it should
-be configurable on the command line. The parameter that controls this is currently
-missing and must be added. The flag should be `--parallel`. Page 1 must be fetched
-first to determine the total page count; remaining pages are then fetched in parallel.
-Use 250 as the page size. This doesn't have to be configurable.
+### Parallelism
 
-Information about the SonarQube Server version should be printed as a debug message.
+The `--parallel` flag is added to the `collect` command (default: `5`). It controls how many pages are fetched concurrently and is passed into every collection target. Page 1 is always fetched first to determine the total page count; remaining pages are then fetched in parallel up to the configured limit.
 
-Information about how many pages were collected out of how many should be printed as debug messages.
+Page size is fixed at 250. This is not configurable.
 
-All errors must be handled and logged correctly.
+### Verbose flag
 
-Log basic messages at INFO level to indicate the operation started and ended.
+A `-v` / `--verbose` persistent flag must be added to the root command. When set, the logger is reconfigured to `DEBUG` level before any subcommand runs. Default is `false` (INFO level).
 
-Because the data will be processed separately, just keep the approach where raw API JSON responses are
-saved to disk.
+This flag is not currently implemented and must be added as part of this spec.
 
-Collected data is written to `<out-dir>/bgtasks/*`. Each API page is a separate file such as `background-tasks-page-{NNNN}.json`.
-The API responses don't have to be manipulated in any way, just saved.
+### Logging
 
-Respect the `maxExecutedAt` filter implemented in the PowerShell script.
+- Log at INFO level when collection starts and ends.
+- Log the detected SonarQube Server version at DEBUG level.
+- Log page progress at DEBUG level (e.g. "collected page X of Y").
 
-The PowerShell script has a dedicated switch for deciding between bearer token and
-basic authentication. I don't want to implement it here like that. I want this app
-to check the SonarQube server version and automatically decide what is the authentication
-that needs to be used.
+### Output
 
-While the `bgtasks` target collects data for a specific purpose, we are laying the
-groundwork for future work. The SonarQube version should be detected outside of this
-target. It will be common to all other targets. Additionally, the version should be stored
-is a `collection metadata` object that should then be serialized into `<out-dir>/collect-metadata.json`.
+The entire output directory (`<out-dir>`) is deleted before any collection begins if it already exists.
 
-This app should assume it's working with SonarQube server unless the URL is on of the following:
-- https://sonarcloud.io
-- https://sonarcloud.us
-- Staging SonarQube Cloud instances, URLs to be added later as I don't know them yet. Add a TODO comment.
+Collected data is written to `<out-dir>/bgtasks/`. Each API page is saved as a separate file:
 
-If SonarQube Server version detection fails, this app should stop. No other collection task will succeed.
+```
+background-tasks-page-0001.json
+background-tasks-page-0002.json
+...
+```
 
-This app should delete the content of the output folder before running if any output already
-exists. Only the output for the target(s) running should be cleared.
-
-Bearer token should be used by default. However, on SonarQube Server versions
-older than 10.2.0.X, basic authentication must be used.
-
+Page numbering starts at 1 and is zero-padded to 4 digits. API responses are saved verbatim with no transformation.

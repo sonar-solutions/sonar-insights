@@ -11,6 +11,7 @@ import (
 
 var logger *slog.Logger
 var timing bool
+var verbose bool
 var startTime time.Time
 
 var rootCmd = &cobra.Command{
@@ -31,8 +32,12 @@ func init() {
 	logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 	rootCmd.PersistentFlags().BoolVar(&timing, "timing", false, "log total execution time on exit")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug logging")
 
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		if verbose {
+			logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		}
 		if timing {
 			startTime = time.Now()
 		}

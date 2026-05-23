@@ -16,6 +16,7 @@ func init() {
 	runCmd.Flags().String("token", "", "SonarQube authentication token (env: SONAR_TOKEN)")
 	runCmd.Flags().String("dir", "./sonar-data/", "directory for collected data")
 	runCmd.Flags().String("report-name", "sonar-insights-report", "output report name (without extension)")
+	runCmd.Flags().Int("parallel", 5, "number of pages to fetch concurrently")
 	rootCmd.AddCommand(runCmd)
 }
 
@@ -24,7 +25,8 @@ func runRunCmd(cmd *cobra.Command, args []string) error {
 	token, _ := cmd.Flags().GetString("token")
 	dir, _ := cmd.Flags().GetString("dir")
 	reportName, _ := cmd.Flags().GetString("report-name")
-	if err := runCollect(args, url, token, dir); err != nil {
+	parallel, _ := cmd.Flags().GetInt("parallel")
+	if err := runCollect(args, url, token, dir, parallel); err != nil {
 		return err
 	}
 	return runAnalyze(args, dir, reportName)

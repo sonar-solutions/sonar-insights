@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lfrystak/sonar-insights/internal/collector"
+	"github.com/sonar-solutions/sonar-insights/internal/collector"
 	"github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/lfrystak/sonar-insights/internal/analyzer"
+	"github.com/sonar-solutions/sonar-insights/internal/analyzer"
 	"github.com/spf13/cobra"
 )
 

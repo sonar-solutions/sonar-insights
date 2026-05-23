@@ -18,7 +18,7 @@ on:
 
 env:
   GO_VERSION: stable
-  SQC_ORG: lfrystak
+  SQC_ORG: sonar-solutions
   SQC_PROJECT_KEY: go-sandbox
   SQC_PROJECT_NAME: go-sandbox
 

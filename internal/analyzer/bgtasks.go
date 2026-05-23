@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lfrystak/sonar-insights/internal/reporter"
+	"github.com/sonar-solutions/sonar-insights/internal/reporter"
 )
 
 // AnalyzeBgTasks reads collected background task data from dir and contributes to the report.

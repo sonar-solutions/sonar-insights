@@ -1,4 +1,4 @@
-module github.com/lfrystak/sonar-insights
+module github.com/sonar-solutions/sonar-insights
 
 go 1.26.3
 

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/lfrystak/sonar-insights/cmd"
+	"github.com/sonar-solutions/sonar-insights/cmd"
 )
 
 func main() {

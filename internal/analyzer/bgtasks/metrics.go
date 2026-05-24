@@ -592,7 +592,7 @@ func buildExecPoints(tasks []BgTask, branchName string) []ExecPoint {
 	})
 	points := make([]ExecPoint, len(filtered))
 	for i, t := range filtered {
-		label := t.StartedAt.UTC().Format("2006-01-02 15:04:05") + fmt.Sprintf("%d", t.ExecutionTimeMs)
+		label := t.StartedAt.UTC().Format("2006-01-02 15:04:05")
 		points[i] = ExecPoint{Label: label, Seconds: float64(t.ExecutionTimeMs) / 1000.0}
 	}
 	return points

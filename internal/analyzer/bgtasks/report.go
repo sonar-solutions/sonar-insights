@@ -287,6 +287,7 @@ func buildLineChart(title string, series BranchExecutionTimeSeries) *rptgen.Line
 	}
 	c := rptgen.NewLineChartSingle(title, pts)
 	c.ShowPoints = false
+	c.LineWidth = rptgen.Ptr(1.0)
 	return c
 }
 

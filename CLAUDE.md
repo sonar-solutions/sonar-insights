@@ -10,9 +10,9 @@ Before committing any code:
 - The code must be formatted with `go fmt`
 - The go linter must run without errors: `golangci-lint run`
 
-When commiting code:
+When committing code:
 - Never commit to main
-- Always create a dedicated, appropriately names branch for the work
+- Always create a dedicated, appropriately named branch for the work
 - Always start from the main branch that is up to date. Report problems if any are encountered.
 - Create appropriate, detailed commit messages in the format: subject + message
 

@@ -39,4 +39,5 @@ dist/
 .mcp.json
 prompt-draft.md
 sonar-data
+sonar-reports
 .vscode/settings.json

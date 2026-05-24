@@ -2,7 +2,6 @@ package bgtasks
 
 import (
 	"math"
-	"os"
 	"testing"
 	"time"
 )
@@ -168,11 +167,7 @@ func TestDetectClusters_NoBusyBuckets(t *testing.T) {
 }
 
 func TestCalculateCapacityDemand_GoldenMaster(t *testing.T) {
-	dir := "/Users/lukas/repos/sonar-insights-cs/test-data"
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		t.Skip("C# test data not available")
-	}
-	tasks, err := Load(dir, nopLogger)
+	tasks, err := Load("../../../test-data", nopLogger)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}

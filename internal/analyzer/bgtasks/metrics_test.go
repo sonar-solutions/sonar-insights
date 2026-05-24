@@ -2,7 +2,6 @@ package bgtasks
 
 import (
 	"math"
-	"os"
 	"testing"
 	"time"
 )
@@ -10,11 +9,7 @@ import (
 // loadGoldenTasks loads the C# test data and deduplicates, matching the golden master setup.
 func loadGoldenTasks(t *testing.T) []BgTask {
 	t.Helper()
-	dir := "/Users/lukas/repos/sonar-insights-cs/test-data"
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		t.Skip("C# test data not available")
-	}
-	tasks, err := Load(dir, nopLogger)
+	tasks, err := Load("../../../test-data", nopLogger)
 	if err != nil {
 		t.Fatalf("load test data: %v", err)
 	}

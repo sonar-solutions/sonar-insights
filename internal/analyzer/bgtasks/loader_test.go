@@ -77,11 +77,7 @@ func TestLoad_CrossFileDeduplication(t *testing.T) {
 }
 
 func TestLoad_GoldenMasterTaskCount(t *testing.T) {
-	dir := "/Users/lukas/repos/sonar-insights-cs/test-data"
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		t.Skip("C# test data not available")
-	}
-	tasks, err := Load(dir, nopLogger)
+	tasks, err := Load("../../../test-data", nopLogger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

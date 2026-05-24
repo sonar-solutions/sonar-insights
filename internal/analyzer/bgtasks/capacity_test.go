@@ -188,12 +188,14 @@ func TestCalculateCapacityDemand_GoldenMaster(t *testing.T) {
 	dr := AnalyzeDateRange(tasks)
 	cap := CalculateCapacityDemand(filtered, dr.EarliestSubmission, dr.LatestCompletion)
 
-	// Golden master: TotalBuckets=14138, BusyBucketsCount=11
+	// Golden master: TotalBuckets=14138, BusyBucketsCount=15
+	// BusyBucketsCount uses the 24/7 99.9th-percentile threshold against all buckets,
+	// so weekend buckets above that threshold are correctly included.
 	if len(cap.DemandPerBucket) != 14138 {
 		t.Errorf("TotalBuckets=%d, want 14138", len(cap.DemandPerBucket))
 	}
-	if cap.BusyBucketsCount != 11 {
-		t.Errorf("BusyBucketsCount=%d, want 11", cap.BusyBucketsCount)
+	if cap.BusyBucketsCount != 15 {
+		t.Errorf("BusyBucketsCount=%d, want 15", cap.BusyBucketsCount)
 	}
 }
 

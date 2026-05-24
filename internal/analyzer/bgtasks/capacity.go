@@ -64,13 +64,19 @@ func CalculateCapacityDemand(tasks []BgTask, start, end time.Time) CapacityDeman
 	populateDemand(&results, tasks)
 
 	calcPercentiles(&results, func(k BucketKey) bool { return true }, "All Buckets (24/7 Coverage)")
+
+	var allDay999 PercentileResult
+	if p, ok := results.Percentiles[0.999]; ok {
+		allDay999 = p
+	}
+
 	calcPercentiles(&results, func(k BucketKey) bool {
 		wd := k.Start.Weekday()
 		return wd != time.Saturday && wd != time.Sunday
 	}, "Weekday Buckets Only (Monday-Friday)")
 
-	if p999, ok := results.Percentiles[0.999]; ok {
-		detectClusters(&results, p999.PercentileMs)
+	if allDay999.PercentileMs > 0 {
+		detectClusters(&results, allDay999.PercentileMs)
 	}
 
 	return results

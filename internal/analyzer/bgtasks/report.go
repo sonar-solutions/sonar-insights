@@ -285,7 +285,9 @@ func buildLineChart(title string, series BranchExecutionTimeSeries) *rptgen.Line
 	for i, p := range series.ExecutionTimesSeconds {
 		pts[i] = rptgen.DataPoint{Label: p.Label, Value: p.Seconds}
 	}
-	return rptgen.NewLineChartSingle(title, pts)
+	c := rptgen.NewLineChartSingle(title, pts)
+	c.ShowPoints = false
+	return c
 }
 
 func sortedDays(m map[time.Time]map[string]int) []time.Time {

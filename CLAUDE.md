@@ -7,7 +7,7 @@ The application should rely on external dependencies minimally. If there is a go
 
 Before committing any code:
 - All test must pass
-- The code must be formatted with `go fmt``
+- The code must be formatted with `go fmt`
 - The go linter must run without errors: `golangci-lint run`
 
 When commiting code:

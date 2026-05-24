@@ -238,7 +238,9 @@ func buildBarChartFromDayMap(title string, m map[time.Time]int) *rptgen.BarChart
 	for i, d := range days {
 		pts[i] = rptgen.DataPoint{Label: d.Format(dateLayout), Value: float64(m[d])}
 	}
-	return rptgen.NewBarChart(title, pts)
+	c := rptgen.NewBarChart(title, pts)
+	c.UniformColor = true
+	return c
 }
 
 func buildBarChartFromTimePct(title string, metrics []TimeCategoryMetric) *rptgen.BarChart {
@@ -246,7 +248,9 @@ func buildBarChartFromTimePct(title string, metrics []TimeCategoryMetric) *rptge
 	for i, m := range metrics {
 		pts[i] = rptgen.DataPoint{Label: m.Label, Value: m.Percentage}
 	}
-	return rptgen.NewBarChart(title, pts)
+	c := rptgen.NewBarChart(title, pts)
+	c.UniformColor = true
+	return c
 }
 
 func buildBarChartFromFloatMap(title string, m map[string]float64) *rptgen.BarChart {
@@ -259,7 +263,9 @@ func buildBarChartFromFloatMap(title string, m map[string]float64) *rptgen.BarCh
 	for i, k := range keys {
 		pts[i] = rptgen.DataPoint{Label: k, Value: m[k]}
 	}
-	return rptgen.NewBarChart(title, pts)
+	c := rptgen.NewBarChart(title, pts)
+	c.UniformColor = true
+	return c
 }
 
 func buildTopProjectsTable(projects []TopProject) *rptgen.Table {

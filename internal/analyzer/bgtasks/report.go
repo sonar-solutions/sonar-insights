@@ -218,7 +218,7 @@ func buildPieChart(title string, m map[string]int) *rptgen.PieChart {
 }
 
 func buildStackedBarByType(charts ChartDatasets) *rptgen.StackedBarChart {
-	days := sortedDays(charts.TasksPerDayByType)
+	days := sortedDayKeys(charts.TasksPerDayByType)
 	series := make([]rptgen.StackedBarSeries, len(days))
 	for i, d := range days {
 		vals := make(map[string]float64, len(charts.AllTaskTypes))
@@ -233,7 +233,7 @@ func buildStackedBarByType(charts ChartDatasets) *rptgen.StackedBarChart {
 }
 
 func buildBarChartFromDayMap(title string, m map[time.Time]int) *rptgen.BarChart {
-	days := sortedDaysInt(m)
+	days := sortedDayKeys(m)
 	pts := make([]rptgen.DataPoint, len(days))
 	for i, d := range days {
 		pts[i] = rptgen.DataPoint{Label: d.Format(dateLayout), Value: float64(m[d])}
@@ -291,16 +291,7 @@ func buildLineChart(title string, series BranchExecutionTimeSeries) *rptgen.Line
 	return c
 }
 
-func sortedDays(m map[time.Time]map[string]int) []time.Time {
-	days := make([]time.Time, 0, len(m))
-	for d := range m {
-		days = append(days, d)
-	}
-	sort.Slice(days, func(i, j int) bool { return days[i].Before(days[j]) })
-	return days
-}
-
-func sortedDaysInt(m map[time.Time]int) []time.Time {
+func sortedDayKeys[V any](m map[time.Time]V) []time.Time {
 	days := make([]time.Time, 0, len(m))
 	for d := range m {
 		days = append(days, d)

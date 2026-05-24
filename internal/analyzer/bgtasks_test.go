@@ -1,11 +1,17 @@
 package analyzer
 
 import (
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/sonar-solutions/sonar-insights/internal/analyzer/bgtasks"
 )
+
+var testLogger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 func ptr(t time.Time) *time.Time { return &t }
 
@@ -107,5 +113,114 @@ func TestFilterByDate(t *testing.T) {
 				t.Errorf("filterByDate returned %d tasks, want %d", len(got), tc.wantLen)
 			}
 		})
+	}
+}
+
+// --- filterType ---
+
+func TestFilterType_RemovesMatchingType(t *testing.T) {
+	tasks := []bgtasks.BgTask{
+		{Type: "REPORT"},
+		{Type: "ISSUE_SYNC"},
+		{Type: "REPORT"},
+		{Type: "ISSUE_SYNC"},
+	}
+	got := filterType(tasks, "ISSUE_SYNC")
+	if len(got) != 2 {
+		t.Fatalf("got %d tasks, want 2", len(got))
+	}
+	for _, task := range got {
+		if task.Type == "ISSUE_SYNC" {
+			t.Errorf("ISSUE_SYNC task was not filtered out")
+		}
+	}
+}
+
+func TestFilterType_NothingMatchingIsNoop(t *testing.T) {
+	tasks := []bgtasks.BgTask{{Type: "REPORT"}, {Type: "ISSUE_SYNC"}}
+	got := filterType(tasks, "NONEXISTENT")
+	if len(got) != 2 {
+		t.Errorf("got %d tasks, want 2 (nothing filtered)", len(got))
+	}
+}
+
+// --- AnalyzeBgTasks error paths ---
+
+const minimalTaskJSON = `{
+	"tasks": [{
+		"id": "task-001",
+		"type": "REPORT",
+		"status": "SUCCESS",
+		"submittedAt": "2026-01-15T10:00:00+0000",
+		"startedAt":   "2026-01-15T10:00:01+0000",
+		"executedAt":  "2026-01-15T10:00:10+0000",
+		"executionTimeMs": 9000,
+		"componentKey": "my-project",
+		"branchType": "BRANCH"
+	}],
+	"paging": {"pageIndex": 1, "pageSize": 500, "total": 1}
+}`
+
+func writeBgtasksDir(t *testing.T, parent string) string {
+	t.Helper()
+	dir := filepath.Join(parent, "bgtasks")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir bgtasks: %v", err)
+	}
+	return dir
+}
+
+func TestAnalyzeBgTasks_MissingBgtasksDir(t *testing.T) {
+	dir := t.TempDir() // no bgtasks/ subdirectory
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger)
+	if err == nil {
+		t.Fatal("expected error for missing bgtasks directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention 'not found', got: %v", err)
+	}
+}
+
+func TestAnalyzeBgTasks_EmptyBgtasksDir(t *testing.T) {
+	dir := t.TempDir()
+	writeBgtasksDir(t, dir) // exists but has no JSON files
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger)
+	if err == nil {
+		t.Fatal("expected error for empty bgtasks directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "no tasks found") {
+		t.Errorf("error should mention 'no tasks found', got: %v", err)
+	}
+}
+
+func TestAnalyzeBgTasks_NoTasksAfterDateFilter(t *testing.T) {
+	dir := t.TempDir()
+	bgtasksDir := writeBgtasksDir(t, dir)
+	if err := os.WriteFile(filepath.Join(bgtasksDir, "page-0001.json"), []byte(minimalTaskJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Task is on 2026-01-15; filter from 2026-02-01 excludes it.
+	from := ptr(date(2026, time.February, 1))
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", from, nil, testLogger)
+	if err == nil {
+		t.Fatal("expected error when all tasks are filtered by date, got nil")
+	}
+	if !strings.Contains(err.Error(), "no tasks matched") {
+		t.Errorf("error should mention 'no tasks matched', got: %v", err)
+	}
+}
+
+func TestAnalyzeBgTasks_HappyPath(t *testing.T) {
+	dir := t.TempDir()
+	bgtasksDir := writeBgtasksDir(t, dir)
+	if err := os.WriteFile(filepath.Join(bgtasksDir, "page-0001.json"), []byte(minimalTaskJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reportDir := t.TempDir()
+	if err := AnalyzeBgTasks(dir, reportDir, "myreport", nil, nil, testLogger); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(reportDir, "myreport.html")); os.IsNotExist(err) {
+		t.Error("expected report file myreport.html to be created")
 	}
 }

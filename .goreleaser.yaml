@@ -8,6 +8,11 @@ builds:
   - main: ./...
     env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/sonar-solutions/sonar-insights/cmd.Version={{.Version}}
+      - -X github.com/sonar-solutions/sonar-insights/cmd.Commit={{.Commit}}
+      - -X github.com/sonar-solutions/sonar-insights/cmd.Date={{.Date}}
     goos:
       - linux
       - windows

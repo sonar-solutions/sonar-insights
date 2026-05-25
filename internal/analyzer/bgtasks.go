@@ -1,3 +1,8 @@
+// Package analyzer orchestrates the analysis stage of the sonar-insights
+// pipeline. It reads data previously written by the collector, dispatches to
+// target-specific implementations such as the bgtasks subpackage, and writes
+// the resulting HTML report to disk. The analyzer never connects to a
+// SonarQube instance.
 package analyzer
 
 import (

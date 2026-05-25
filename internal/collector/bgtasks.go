@@ -1,3 +1,7 @@
+// Package collector fetches raw data from a SonarQube instance and writes it
+// to a local directory in its original JSON form. Collection is paginated and
+// runs in parallel; the output is consumed by the analyzer package. The
+// collector never renders reports.
 package collector
 
 import (

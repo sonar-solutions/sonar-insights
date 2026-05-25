@@ -14,15 +14,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Set via -ldflags at build time.
+var (
+	Version = "dev"
+	Commit  = "none"
+	Date    = "unknown"
+)
+
 var logger *slog.Logger
 var timing bool
 var verbose bool
 var startTime time.Time
 
 var rootCmd = &cobra.Command{
-	Use:   "sonar-insights",
-	Short: "Provides insights into SonarQube usage",
-	Long:  "sonar-insights collects data from SonarQube and generates static HTML reports.",
+	Use:     "sonar-insights",
+	Short:   "Provides insights into SonarQube usage",
+	Long:    "sonar-insights collects data from SonarQube and generates static HTML reports.",
+	Version: Version,
 }
 
 func Execute() error {
@@ -35,6 +43,8 @@ func knownTargets() []string {
 
 func init() {
 	logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+	rootCmd.SetVersionTemplate("sonar-insights {{.Version}}\ncommit: " + Commit + "\nbuilt : " + Date + "\n")
 
 	rootCmd.PersistentFlags().BoolVar(&timing, "timing", false, "log total execution time on exit")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug logging")

@@ -35,7 +35,6 @@ func TestPreGenerateBuckets_Count(t *testing.T) {
 	end := ts(2026, 1, 1, 1, 0) // 1 hour = 12 buckets of 5 min
 	results := CapacityDemandResults{
 		DemandPerBucket: make(map[BucketKey]int),
-		Percentiles:     make(map[float64]PercentileResult),
 	}
 	preGenerateBuckets(&results, start, end)
 	if len(results.DemandPerBucket) != 12 {
@@ -57,7 +56,6 @@ func TestPopulateDemand_SingleBucket(t *testing.T) {
 		DemandPerBucket: map[BucketKey]int{
 			{Start: start, End: end}: 0,
 		},
-		Percentiles: make(map[float64]PercentileResult),
 	}
 	task := BgTask{
 		SubmittedAt:     start,
@@ -82,7 +80,6 @@ func TestPopulateDemand_SpansMultipleBuckets(t *testing.T) {
 			{Start: b1s, End: b1e}: 0,
 			{Start: b2s, End: b2e}: 0,
 		},
-		Percentiles: make(map[float64]PercentileResult),
 	}
 	submittedAt := ts(2026, 1, 1, 10, 3)
 	task := BgTask{SubmittedAt: submittedAt, ExecutionTimeMs: 6 * 60 * 1000}
@@ -129,7 +126,6 @@ func TestDetectClusters_ConsecutiveBuckets(t *testing.T) {
 			{Start: b2s, End: b2e}: 100,
 			{Start: b3s, End: b3e}: 100,
 		},
-		Percentiles: make(map[float64]PercentileResult),
 	}
 	detectClusters(&results, 50) // threshold=50, all three are busy
 
@@ -154,7 +150,6 @@ func TestDetectClusters_NoBusyBuckets(t *testing.T) {
 		DemandPerBucket: map[BucketKey]int{
 			{Start: b1s, End: b1e}: 10,
 		},
-		Percentiles: make(map[float64]PercentileResult),
 	}
 	detectClusters(&results, 50) // threshold higher than any demand
 

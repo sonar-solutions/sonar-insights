@@ -29,7 +29,7 @@ func AnalyzeBgTasks(dir, reportDir, reportName string, from, to *time.Time, logg
 	}
 	logger.Info(fmt.Sprintf("loaded %d unique background tasks", len(tasks)))
 
-	totalRaw := len(tasks)
+	totalBeforeFilter := len(tasks)
 
 	if from != nil || to != nil {
 		tasks = filterByDate(tasks, from, to)
@@ -48,7 +48,7 @@ func AnalyzeBgTasks(dir, reportDir, reportName string, from, to *time.Time, logg
 	}
 
 	dr := bgtasks.AnalyzeDateRange(tasks)
-	overall := bgtasks.AnalyzeOverall(tasks, totalRaw, dr)
+	overall := bgtasks.AnalyzeOverall(tasks, totalBeforeFilter, dr)
 	pm := bgtasks.AnalyzeProjectAnalysis(tasks, dr)
 	charts := bgtasks.AnalyzeCharts(tasks, dr, pm, fromTime, toTime)
 

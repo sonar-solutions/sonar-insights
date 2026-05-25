@@ -46,6 +46,18 @@ func TestAnalyzeDateRange_SpansTwoDays(t *testing.T) {
 	}
 }
 
+func TestAnalyzeDateRange_ZeroExecutedAt(t *testing.T) {
+	submitted := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	tasks := []BgTask{{SubmittedAt: submitted}} // ExecutedAt is zero
+	dr := AnalyzeDateRange(tasks)
+	if dr.LatestCompletion.IsZero() {
+		t.Errorf("LatestCompletion should not be zero when ExecutedAt is missing")
+	}
+	if !dr.LatestCompletion.Equal(submitted) {
+		t.Errorf("LatestCompletion=%v, want %v (fallback to SubmittedAt)", dr.LatestCompletion, submitted)
+	}
+}
+
 func TestAnalyzeDateRange_GoldenMaster(t *testing.T) {
 	tasks := loadGoldenTasks(t)
 	dr := AnalyzeDateRange(tasks)
@@ -58,7 +70,7 @@ func TestAnalyzeDateRange_GoldenMaster(t *testing.T) {
 func TestAnalyzeOverall_GoldenMaster(t *testing.T) {
 	tasks := loadGoldenTasks(t)
 	dr := AnalyzeDateRange(tasks)
-	// totalRaw = 3816 (before dedup), unique = 3815
+	// totalBeforeFilter = 3816 (deduplicated but unfiltered), unique = 3815
 	overall := AnalyzeOverall(tasks, 3816, dr)
 
 	if overall.TotalTasks != 3816 {

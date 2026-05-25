@@ -118,14 +118,14 @@ func AnalyzeDateRange(tasks []BgTask) DateRange {
 		return DateRange{}
 	}
 	earliest := tasks[0].SubmittedAt
-	latest := tasks[0].ExecutedAt
+	latest := executedOrSubmitted(tasks[0])
 	latestSubmission := tasks[0].SubmittedAt
 	for _, t := range tasks[1:] {
 		if t.SubmittedAt.Before(earliest) {
 			earliest = t.SubmittedAt
 		}
-		if t.ExecutedAt.After(latest) {
-			latest = t.ExecutedAt
+		if exec := executedOrSubmitted(t); exec.After(latest) {
+			latest = exec
 		}
 		if t.SubmittedAt.After(latestSubmission) {
 			latestSubmission = t.SubmittedAt
@@ -139,8 +139,15 @@ func AnalyzeDateRange(tasks []BgTask) DateRange {
 	}
 }
 
+func executedOrSubmitted(t BgTask) time.Time {
+	if t.ExecutedAt.IsZero() {
+		return t.SubmittedAt
+	}
+	return t.ExecutedAt
+}
+
 // AnalyzeOverall computes aggregate metrics across all task types.
-func AnalyzeOverall(tasks []BgTask, totalRaw int, dr DateRange) OverallMetrics {
+func AnalyzeOverall(tasks []BgTask, totalBeforeFilter int, dr DateRange) OverallMetrics {
 	var avgPerDay float64
 	if dr.DateRangeInDays > 0 {
 		avgPerDay = float64(len(tasks)) / float64(dr.DateRangeInDays)
@@ -169,7 +176,7 @@ func AnalyzeOverall(tasks []BgTask, totalRaw int, dr DateRange) OverallMetrics {
 	}
 
 	return OverallMetrics{
-		TotalTasks:            totalRaw,
+		TotalTasks:            totalBeforeFilter,
 		TotalUniqueTasks:      len(tasks),
 		AverageTasksPerDay:    avgPerDay,
 		BusiestDayTaskCount:   busiest,

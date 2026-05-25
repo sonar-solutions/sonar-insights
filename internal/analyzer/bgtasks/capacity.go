@@ -44,7 +44,6 @@ type CapacityDemandResults struct {
 	BucketLengthMinutes  int
 	DemandPerBucket      map[BucketKey]int
 	PercentileAnalyses   []PercentileAnalysis
-	Percentiles          map[float64]PercentileResult // last-written analysis (24/7 then weekday)
 	BusyClusters         []BusyCluster
 	BusyBucketsCount     int
 	BusyBucketsThreshold float64
@@ -57,7 +56,6 @@ func CalculateCapacityDemand(tasks []BgTask, start, end time.Time) CapacityDeman
 	results := CapacityDemandResults{
 		BucketLengthMinutes: bucketLengthMin,
 		DemandPerBucket:     make(map[BucketKey]int),
-		Percentiles:         make(map[float64]PercentileResult),
 	}
 
 	preGenerateBuckets(&results, start, end)
@@ -66,8 +64,10 @@ func CalculateCapacityDemand(tasks []BgTask, start, end time.Time) CapacityDeman
 	calcPercentiles(&results, func(k BucketKey) bool { return true }, "All Buckets (24/7 Coverage)")
 
 	var allDay999 PercentileResult
-	if p, ok := results.Percentiles[0.999]; ok {
-		allDay999 = p
+	if len(results.PercentileAnalyses) > 0 {
+		if p, ok := results.PercentileAnalyses[0].Percentiles[0.999]; ok {
+			allDay999 = p
+		}
 	}
 
 	calcPercentiles(&results, func(k BucketKey) bool {
@@ -134,9 +134,6 @@ func calcPercentiles(results *CapacityDemandResults, filter func(BucketKey) bool
 		BucketCount: len(demands),
 		Percentiles: percentiles,
 	})
-	for p, pr := range percentiles {
-		results.Percentiles[p] = pr
-	}
 }
 
 type bucketDemand struct {

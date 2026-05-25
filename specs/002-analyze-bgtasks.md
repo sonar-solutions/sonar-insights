@@ -20,7 +20,7 @@ Compute Engine worker configuration.
 ## Goal
 
 Port the analysis functionality implemented in the C# reference project at
-`/Users/lukas/repos/sonar-insights-cs` to this Go application, with an improved internal
+`$HOME/repos/sonar-insights-cs` to this Go application, with an improved internal
 architecture. The C# implementation is the authoritative source for analysis logic, formulas,
 and report structure. Any deviation from it must be called out explicitly in this spec or
 agreed upon during implementation.
@@ -226,10 +226,10 @@ overall summary, project analysis summary, capacity demand analysis). Use
 - `capacity.go` must have unit tests covering bucket generation, proportional demand
   distribution, percentile output, and cluster detection
 - `metrics.go` must have unit tests for each analysis function
-- Use the C# golden master data at `/Users/lukas/repos/sonar-insights-cs/golden-masters/`
+- Use the C# golden master data at `$HOME/repos/sonar-insights-cs/golden-masters/`
   as a reference for expected output values
 
 ### Reference implementation
-Before implementing, read the C# source at `/Users/lukas/repos/sonar-insights-cs`. Analysis
+Before implementing, read the C# source at `$HOME/repos/sonar-insights-cs`. Analysis
 logic, formulas, and bucket boundaries must match the reference exactly. Deviations require
 explicit justification.

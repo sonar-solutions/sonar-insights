@@ -5,9 +5,43 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sonar-solutions/sonar-insights/internal/sonarqube"
 )
+
+func TestParseOptionalDate_Empty(t *testing.T) {
+	got, err := parseOptionalDate("")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil for empty string, got %v", got)
+	}
+}
+
+func TestParseOptionalDate_ValidDate(t *testing.T) {
+	got, err := parseOptionalDate("2026-03-15")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected non-nil time, got nil")
+	}
+	want := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseOptionalDate_InvalidFormat(t *testing.T) {
+	for _, input := range []string{"15-03-2026", "2026/03/15", "not-a-date"} {
+		_, err := parseOptionalDate(input)
+		if err == nil {
+			t.Errorf("parseOptionalDate(%q): expected error, got nil", input)
+		}
+	}
+}
 
 func TestPrepareOutputDir_DangerousPath(t *testing.T) {
 	cases := []string{"/", ".", ".."}

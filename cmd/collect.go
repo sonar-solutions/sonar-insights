@@ -13,26 +13,45 @@ import (
 )
 
 var collectCmd = &cobra.Command{
-	Use:   "collect [targets...]",
+	Use:   "collect",
 	Short: "Fetch raw data from SonarQube and write to a local directory",
 	Long:  "Connects to a SonarQube server, fetches data for the given targets, and writes it to disk. Never generates reports.",
 	RunE:  runCollectCmd,
 }
 
+var collectBgtasksCmd = &cobra.Command{
+	Use:   "bgtasks",
+	Short: "Collect background task data from SonarQube",
+	RunE:  runCollectBgtasksCmd,
+}
+
+const flagOutDir = "out-dir"
+
 func init() {
 	collectCmd.Flags().String("url", "", "SonarQube base URL (env: SONAR_HOST_URL, default: https://sonarcloud.io)")
 	collectCmd.Flags().String("token", "", "SonarQube authentication token (env: SONAR_TOKEN)")
-	collectCmd.Flags().String("out-dir", "./sonar-data/", "directory to write collected data")
+	collectCmd.Flags().String(flagOutDir, "./sonar-data/", "directory to write collected data")
 	collectCmd.Flags().Int("parallel", 5, "number of pages to fetch concurrently")
+
+	collectCmd.AddCommand(collectBgtasksCmd)
 	rootCmd.AddCommand(collectCmd)
 }
 
-func runCollectCmd(cmd *cobra.Command, args []string) error {
+func runCollectCmd(cmd *cobra.Command, _ []string) error {
 	url, _ := cmd.Flags().GetString("url")
 	token, _ := cmd.Flags().GetString("token")
-	outDir, _ := cmd.Flags().GetString("out-dir")
+	outDir, _ := cmd.Flags().GetString(flagOutDir)
 	parallel, _ := cmd.Flags().GetInt("parallel")
-	return runCollect(args, url, token, outDir, parallel)
+	return runCollect(knownTargets(), url, token, outDir, parallel)
+}
+
+func runCollectBgtasksCmd(cmd *cobra.Command, _ []string) error {
+	parent := cmd.Parent()
+	url, _ := parent.Flags().GetString("url")
+	token, _ := parent.Flags().GetString("token")
+	outDir, _ := parent.Flags().GetString(flagOutDir)
+	parallel, _ := parent.Flags().GetInt("parallel")
+	return runCollect([]string{"bgtasks"}, url, token, outDir, parallel)
 }
 
 func runCollect(targets []string, url, token, outDir string, parallel int) error {
@@ -47,10 +66,6 @@ func runCollect(targets []string, url, token, outDir string, parallel int) error
 	}
 	if token == "" {
 		return fmt.Errorf("--token or SONAR_TOKEN is required")
-	}
-
-	if len(targets) == 0 {
-		targets = knownTargets()
 	}
 
 	client := sonarqube.NewHTTPClient()

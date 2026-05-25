@@ -1,3 +1,5 @@
+// Command sonar-insights collects data from a SonarQube instance and renders
+// it into self-contained HTML reports. See the README for usage.
 package main
 
 import (

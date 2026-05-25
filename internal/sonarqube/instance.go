@@ -1,3 +1,7 @@
+// Package sonarqube models a SonarQube instance, distinguishes SonarQube
+// Server from SonarQube Cloud, detects the product family from a base URL,
+// and builds the correct authorization header (bearer vs. basic) for API
+// requests based on the detected product and server version.
 package sonarqube
 
 import (

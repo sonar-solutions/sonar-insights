@@ -1,3 +1,6 @@
+// Package mathutil provides small numeric helpers shared across analysis
+// code, such as linear-interpolated percentile calculation over ordered
+// slices.
 package mathutil
 
 import (

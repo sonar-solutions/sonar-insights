@@ -1,3 +1,8 @@
+// Package cmd wires the sonar-insights command-line interface together using
+// cobra. It defines the root command and the collect, analyze, and run
+// subcommand trees, resolves shared flags such as the SonarQube URL, token,
+// and output directories, and dispatches into the internal analyzer and
+// collector packages.
 package cmd
 
 import (

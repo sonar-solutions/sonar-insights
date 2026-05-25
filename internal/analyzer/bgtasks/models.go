@@ -1,3 +1,7 @@
+// Package bgtasks loads SonarQube Compute Engine activity records from disk,
+// computes summary metrics and per-bucket capacity-demand statistics, and
+// renders the result as a self-contained HTML report. It is invoked by the
+// parent analyzer package when the bgtasks target is requested.
 package bgtasks
 
 import (

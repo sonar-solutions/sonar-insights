@@ -3,7 +3,7 @@ spec: 025
 title: Narrow `prepareOutputDir`'s blast radius — delete per-target, not whole `--out-dir`
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

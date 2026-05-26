@@ -3,7 +3,7 @@ spec: 018
 title: Use structured slog key/value attributes instead of `fmt.Sprintf`-built log messages
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

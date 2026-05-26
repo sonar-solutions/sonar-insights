@@ -3,7 +3,7 @@ spec: 005
 title: `--report-name` allows path traversal outside `--report-dir`
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

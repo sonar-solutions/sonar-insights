@@ -3,7 +3,7 @@ spec: 015
 title: Plumb `context.Context` through CLI, collector, and HTTP calls
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

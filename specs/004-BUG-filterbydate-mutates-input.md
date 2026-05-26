@@ -3,7 +3,7 @@ spec: 004
 title: `filterByDate` aliases the caller's backing array and mutates input
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

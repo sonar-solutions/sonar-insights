@@ -3,7 +3,7 @@ spec: 024
 title: Replace substring label matching in capacity analysis with named constants
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

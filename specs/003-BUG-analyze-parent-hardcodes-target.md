@@ -57,10 +57,16 @@ func runAnalyzeCmd(cmd *cobra.Command, args []string) error {
 
 None.
 
+## Scope
+
+The fix is intentionally minimal. `runAnalyze` internals — the hardcoded
+`reportName` default and the `switch` that dispatches on target names — are
+unchanged and out of scope. Those will be addressed when new targets are
+introduced (see spec 014).
+
 ## Validation
 
-Add a CLI-level test that invokes `analyze` (no subcommand) against a temp
-directory containing only one known target's data, and assert that the
-target's analyzer runs (or the run is dispatched). Cleaner: introduce target
-registration first (see 017-IMP-target-registry) — then this bug becomes
-mechanically impossible.
+No new test is required for this fix alone. `knownTargets()` currently returns
+a single entry, making it impossible to distinguish "runs all targets" from
+"runs the hardcoded one" in a test. Coverage of the "all targets run" property
+belongs to the tests added in spec 014 when a second target exists.

@@ -3,7 +3,7 @@ spec: 029
 title: Reconcile `--out-dir` vs `--dir` and other CLI flag-name inconsistencies
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

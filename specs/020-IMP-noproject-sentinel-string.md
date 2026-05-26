@@ -3,7 +3,7 @@ spec: 020
 title: Replace `"no project key - error"` sentinel with a neutral placeholder
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

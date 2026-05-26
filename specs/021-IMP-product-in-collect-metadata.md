@@ -3,7 +3,7 @@ spec: 021
 title: Record `Product` (Server vs. Cloud) in `collect-metadata.json`
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

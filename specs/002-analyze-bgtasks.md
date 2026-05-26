@@ -3,8 +3,8 @@ spec: 002
 title: Analyze Background Tasks (bgtasks)
 author: lfrystak
 date: 2026-05-23
-draft-status: draft
-impl-status: ready-started
+draft-status: ready
+impl-status: complete
 prerequisites: [001]
 ---
 

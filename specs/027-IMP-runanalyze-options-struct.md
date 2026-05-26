@@ -3,7 +3,7 @@ spec: 027
 title: Replace positional-argument soup in `runAnalyze` / `AnalyzeBgTasks` with options structs
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

@@ -3,7 +3,7 @@ spec: 008
 title: `mathutil.toFloat64` silently returns 0 for non-numeric ordered types
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

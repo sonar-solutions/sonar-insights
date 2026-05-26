@@ -64,40 +64,9 @@ Write the implementation following these project rules:
 - Follow the output path conventions in the spec exactly.
 - Clear target-specific output directories before writing, as specified.
 
-## Phase 6 — Validate
+## Phase 6 — Ship
 
-Run all three gates in order. Fix any failures before proceeding.
-
-```bash
-go fmt ./...
-golangci-lint run
-go test ./...
-```
-
-Do not skip or bypass any gate. If a gate fails and you cannot fix it, stop and explain the problem to the user.
-
-## Phase 7 — Commit
-
-Stage only the files relevant to this implementation (never `git add .` blindly).
-
-Write a commit message with:
-- **Subject line**: short imperative summary (e.g. `feat: implement bgtasks collector`)
-- **Body**: what changed and why — key decisions, any deviations from the spec and the reason
-
-Format:
-```
-<subject>
-
-<body paragraph(s)>
-
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
-```
-
-Never commit directly to `main`.
-
-## Phase 8 — Pull request
-
-Open a PR to `main` using `gh pr create`.
+Once the implementation is complete, invoke the `/ship` skill to validate, commit, push to both remotes, and open pull requests. Pass a subject line derived from the spec (e.g. `feat: implement bgtasks collector`).
 
 The PR description must include:
 - What this implements (link the spec file)
@@ -108,8 +77,6 @@ The PR description must include:
 ## Behaviour rules
 
 - Never commit to `main`.
-- Never skip `go fmt`, `golangci-lint`, or `go test`. All three must pass.
-- Never use `--no-verify` or bypass hooks.
 - If the spec is ambiguous on a point, make the conservative choice and leave a `// TODO:` comment with the question — do not silently assume.
 - If something in the spec contradicts the reference implementation, stop and ask the user for clarification before proceeding.
 - Prefer editing existing files over creating new ones unless the spec clearly calls for a new file.

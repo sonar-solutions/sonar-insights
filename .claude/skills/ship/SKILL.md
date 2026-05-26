@@ -76,14 +76,14 @@ For each PR, the description must include:
 - Any notable decisions or deviations
 - Testing notes (what was tested and how)
 
-**origin PR:**
+**origin PR** — derive owner/repo from `git remote get-url origin`:
 ```bash
-gh pr create --base main --title "<subject>" --body "<description>"
+gh pr create --repo <origin-owner/repo> --head <origin-owner>:<branch> --base main --title "<subject>" --body "<description>"
 ```
 
-**personal PR** (use the repo path from the remote URL):
+**personal PR** — derive owner/repo from `git remote get-url personal`:
 ```bash
-gh pr create --repo <owner/repo-from-personal-remote> --base main --title "<subject>" --body "<description>"
+gh pr create --repo <personal-owner/repo> --head <personal-owner>:<branch> --base main --title "<subject>" --body "<description>"
 ```
 
 Both PRs should have identical titles and descriptions.

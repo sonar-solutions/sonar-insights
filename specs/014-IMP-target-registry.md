@@ -3,7 +3,7 @@ spec: 014
 title: Introduce a target registry to make adding a new collection target a one-file change
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

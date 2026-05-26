@@ -3,7 +3,7 @@ spec: 019
 title: Introduce a `SonarClient` interface so Server and Cloud can diverge cleanly
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

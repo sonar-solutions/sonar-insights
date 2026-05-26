@@ -3,7 +3,7 @@ spec: 017
 title: Remove package-global state from `cmd` (logger, timing, startTime)
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

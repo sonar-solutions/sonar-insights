@@ -3,7 +3,7 @@ spec: 012
 title: Collector and loader return non-deterministic "first error" under concurrent failures
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

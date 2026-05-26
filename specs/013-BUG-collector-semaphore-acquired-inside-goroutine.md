@@ -3,7 +3,7 @@ spec: 013
 title: Collector spawns all goroutines up front; semaphore only throttles the HTTP call
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

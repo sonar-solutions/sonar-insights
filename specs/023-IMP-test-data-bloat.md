@@ -3,7 +3,7 @@ spec: 023
 title: Move 180-file golden-master dataset out of the source tree
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

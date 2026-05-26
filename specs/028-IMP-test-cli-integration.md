@@ -3,7 +3,7 @@ spec: 028
 title: Add CLI-level integration tests that exercise Cobra wiring end-to-end
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

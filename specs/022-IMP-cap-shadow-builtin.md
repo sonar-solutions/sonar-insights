@@ -3,7 +3,7 @@ spec: 022
 title: Rename variable `cap` so it doesn't shadow the `cap` builtin
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

@@ -3,7 +3,7 @@ spec: 011
 title: `fetchPage` discards response body on non-OK status, losing diagnostic context
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

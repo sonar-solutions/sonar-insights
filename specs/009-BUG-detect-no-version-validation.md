@@ -3,7 +3,7 @@ spec: 009
 title: `Detect` accepts any HTTP 200 body as a SonarQube Server version
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

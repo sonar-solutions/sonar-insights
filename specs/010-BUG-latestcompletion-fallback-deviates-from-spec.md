@@ -3,7 +3,7 @@ spec: 010
 title: `AnalyzeDateRange.LatestCompletion` falls back to `SubmittedAt`, deviating from spec
 author: code-review
 date: 2026-05-25
-draft-status: ready
+draft-status: draft
 impl-status: not-started
 prerequisites: []
 ---

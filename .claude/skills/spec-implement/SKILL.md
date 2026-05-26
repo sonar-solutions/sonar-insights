@@ -32,9 +32,14 @@ Set `impl-status: in-progress` in the spec frontmatter before writing any code.
 
 ## Phase 4 — Branch (in a worktree)
 
+First, detect whether you are already inside a git worktree by running `git rev-parse --git-dir`. A result ending in `/worktrees/<name>` (or `\.worktrees\<name>` on Windows) means you are already in a linked worktree — the branch is set. In that case, skip steps 1–3 and proceed directly to step 4.
+
+If you are **not** already in a worktree:
+
 1. Check that the working tree is clean (`git status`). If there are uncommitted changes, stop and tell the user.
 2. Check out `main` and pull to ensure it is up to date. If there are problems, stop and report them.
 3. Create a new git worktree at `.claude/worktrees/<branch-name>` on a new branch with a descriptive name matching the spec (e.g. `feat/collect-bgtasks`, `fix/bgtasks-semaphore`, `imp/target-registry`).
+
 4. Do all subsequent work inside the worktree.
 
 ## Phase 5 — Implement
@@ -108,8 +113,17 @@ The PR description must include:
 
 ## Phase 8 — Update spec status
 
-After the PR is successfully opened, update the spec file:
-- Set `impl-status: complete`
+After the PR is successfully opened:
+
+1. Update the spec file: set `impl-status: complete`.
+2. Commit and push this change:
+
+```bash
+git add <spec-file>
+git commit -m "chore: mark spec <NNN> impl-status complete"
+git push origin <branch>
+git push personal <branch>
+```
 
 ## Behaviour rules
 

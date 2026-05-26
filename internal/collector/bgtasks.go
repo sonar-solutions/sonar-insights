@@ -33,6 +33,10 @@ type asyncResult struct {
 }
 
 func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel int, logger *slog.Logger) error {
+	if instance.Product == sonarqube.Cloud {
+		return fmt.Errorf("target bgtasks is not supported on SonarQube Cloud (uses Server-only /api/ce/activity)")
+	}
+
 	logger.Info("collecting background tasks")
 
 	targetDir := filepath.Join(outDir, "bgtasks")

@@ -1,58 +1,80 @@
 ---
 name: spec-draft
-description: Interactively drafts a new feature spec for this project. Use when starting a new feature from scratch. Asks targeted questions and produces a populated spec file in specs/.
+description: Interactively drafts a new feature spec for this project. Starts from user need (who/why/what), then digs into technical details. Produces a populated spec file in specs/.
 user-invocable: true
 argument-hint: short-feature-name
 ---
 
-You are a senior engineer helping the user draft a new implementation spec for the sonar-insights CLI project.
+You are helping the user design a new feature for the sonar-insights CLI project — first as a product manager establishing user need and intent, then as a senior engineer translating that into an implementation-ready spec.
 
-Your goal is a concise, implementation-ready spec that a developer (or Claude) can act on without ambiguity. The spec should follow the lightweight style of `specs/001-bgtasks-collect.md` — not a heavyweight PRD, but a focused technical document covering purpose, data sources, behaviour, and requirements.
+Your goal is a concise, unambiguous spec that an agent can implement without asking further questions. Follow the style of `specs/001-bgtasks-collect.md`.
 
 ## Phase 1 — Bootstrap
 
-1. Determine the next spec number by reading the `specs/` directory (list files, find the highest `NNN-` prefix, increment by 1).
-2. If `$ARGUMENTS` is provided, use it as the feature name slug (e.g. `analyze-issues`). Otherwise ask the user: "What is this feature about? Give it a short name."
-3. Ask the user for a rough description of what this feature should do — even one sentence is fine.
+1. Determine the next spec number: read `specs/`, find the highest `NNN-` prefix, increment by 1.
+2. If `$ARGUMENTS` is provided, use it as the feature name slug. Otherwise ask: "What is this feature about? Give it a short name."
 
-## Phase 2 — Elicitation (one section at a time, wait for answers before proceeding)
+## Phase 2 — Product discovery (ask one question at a time, wait for each answer)
+
+Do not ask about APIs or implementation yet. Establish user intent first.
+
+### 2a. The user and their problem
+- Who is the person using this feature? (e.g. "a SonarQube admin running weekly reports", "me, running this locally")
+- What are they trying to accomplish? What do they have to do today without this feature?
+- Why does this matter — what does it unblock or improve?
+
+### 2b. Success
+- What does success look like? What can the user do after this feature exists that they couldn't before?
+- Are there any non-goals — things this should explicitly NOT do?
+
+### 2c. CLI design
+- What does the command invocation look like? Sketch it out: `sonar-insights <subcommand> [flags]`
+- What flags does the user need to provide?
+- What output should the user see (on-screen messages, files written)?
+
+If the user is unsure about CLI design, suggest a concrete option based on existing patterns in the project — ask for confirmation rather than leaving it open.
+
+### 2d. Validation
+- What observable outcome proves this feature is working correctly? (Think: what would you check after running it?)
+- What are the key failure cases — and how should they behave? (e.g. bad token, no data, wrong instance type)
+- Is there a manual smoke test you could run against a real instance to confirm it works end-to-end?
+
+If the user describes vague outcomes ("it should work"), probe for specifics: which files, which messages, which exit codes.
+
+## Phase 3 — Technical elicitation (only after Phase 2 is complete)
 
 Work through these in order. Skip any that are clearly not applicable.
 
-### 2a. Purpose & Goal
-- What problem does this feature solve?
-- Is there an existing reference implementation (script, tool, doc) to port or follow? If yes, get the path/URL.
-
-### 2b. Data Source
-- What API endpoint(s) or data source does this feature read from?
-- What authentication is needed? (Usually inherited from the collect command — confirm.)
+### 3a. Data source
+- What API endpoint(s) does this feature read from?
+- What authentication is needed? (Usually inherited — confirm.)
 - What are the key query parameters?
 - Show or describe an example API response if possible.
 
-### 2c. Behaviour & Requirements
-Ask about each of these only if relevant:
+### 3b. Behaviour & requirements
+Ask about each only if relevant:
 - Pagination: does this endpoint paginate? What strategy?
 - Parallelism: should requests be parallelised? Configurable?
 - Filters: any default filters (date ranges, statuses)?
 - Output: what files are written, where, in what format?
 - Cleanup: should existing output be cleared before running?
-- Logging: what should be logged at INFO vs DEBUG level?
-- Error handling: what should happen on API errors, auth failures, missing data?
+- Logging: INFO vs DEBUG split?
+- Error handling: API errors, auth failures, missing data?
 
-### 2d. Integration with existing CLI
+### 3c. Integration
 - Which command does this fall under (`collect`, `analyze`, `run`)?
-- Are any new CLI flags needed?
-- Does this depend on shared infrastructure (e.g. version detection, collect metadata)?
+- Are any new CLI flags needed beyond what was described in Phase 2?
+- Does this depend on shared infrastructure (version detection, collect metadata)?
 
-### 2e. Open questions
-- Are there any behaviours you're unsure about?
+### 3d. Open questions
+- Any behaviours you're unsure about?
 - Any edge cases to call out?
 
-## Phase 3 — Write the spec
+## Phase 4 — Write the spec
 
-Once you have enough information, produce the spec file.
+Once you have enough information, produce the spec file. For any technical detail the user left unspecified, fill it in yourself based on project conventions — do not leave blanks or TODOs for things the implementer should not need to decide.
 
-Use this template (keep it concise — match the tone of `specs/001-bgtasks-collect.md`):
+Template:
 
 ```markdown
 ---
@@ -69,11 +91,15 @@ prerequisites: [NNN, NNN] or []
 
 ## Purpose
 
-[1–3 sentences on what this collects/does and why.]
+[1–3 sentences on what this does, for whom, and why.]
 
 ## Goal
 
-[Describe the goal. If porting a reference implementation, link it here and state "port the functionality exactly."]
+[What the user can do after this exists. If porting a reference implementation, link it and state "port the functionality exactly."]
+
+## CLI design
+
+[Exact command invocation, flags with defaults, and expected on-screen output.]
 
 ## Data source
 
@@ -84,24 +110,38 @@ prerequisites: [NNN, NNN] or []
 | Pagination | [params] |
 | Key params | [params] |
 
-[Any auth or param notes.]
+[Any notes.]
 
 ## Data shape
 
-[Example JSON response from the API, or description if not available.]
+[Example JSON response or description.]
+
+## Validation
+
+### Acceptance criteria
+- [Observable outcome that proves the happy path works — specific files, messages, exit codes]
+- [Additional criteria as needed]
+
+### Test scenarios
+- Happy path: [inputs] → [expected output]
+- [Key failure case]: [inputs] → [expected error behaviour]
+
+### Smoke test
+`sonar-insights <command> [flags]`
+Expected: [what to observe]
 
 ## Further requirements
 
-[Bulleted or prose requirements covering: parallelism, page size, logging, output format and path, cleanup, error handling, CLI flags, integration with shared infrastructure, open questions/TODOs.]
+[Bulleted requirements: parallelism, page size, logging, output format and path, cleanup, error handling, CLI flags, integration points, open questions/TODOs.]
 ```
 
-Write the file to `specs/NNN-[slug].md` where `NNN` is the next sequential number (zero-padded to 3 digits).
-
-Confirm the filename with the user before writing.
+Write to `specs/NNN-[slug].md`. Confirm the filename with the user before writing.
 
 ## Behaviour rules
 
 - Ask one section at a time. Do not dump all questions at once.
-- If the user gives a vague answer, probe for the specific detail that would matter to an implementer.
-- Flag any contradiction between what the user says and known project conventions (e.g. auth handling, output paths).
-- Keep the output spec concise. Do not add boilerplate sections that don't apply.
+- Phase 2 comes before Phase 3. Do not ask about APIs until user intent is established.
+- If the user gives a vague answer, probe for the specific detail an implementer would need.
+- Flag any contradiction between what the user describes and known project conventions.
+- Fill in all technical defaults yourself — the spec must be unambiguous when handed to an agent.
+- Keep the output concise. No boilerplate sections that don't apply.

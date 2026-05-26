@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -40,6 +41,22 @@ func makeResponse(total, pageIndex int) []byte {
 	}
 	data, _ := json.Marshal(resp)
 	return data
+}
+
+func TestCollectBgTasks_CloudNotSupported(t *testing.T) {
+	inst := sonarqube.SonarInstance{
+		Product: sonarqube.Cloud,
+		BaseURL: "https://sonarcloud.io",
+		Token:   "testtoken",
+		Client:  sonarqube.NewHTTPClient(),
+	}
+	err := CollectBgTasks(inst, t.TempDir(), 5, noopLogger())
+	if err == nil {
+		t.Fatal("expected error for Cloud instance, got nil")
+	}
+	if !strings.Contains(err.Error(), "not supported on SonarQube Cloud") {
+		t.Errorf("expected descriptive error mentioning Cloud, got: %v", err)
+	}
 }
 
 func TestCollectBgTasks_SinglePage(t *testing.T) {

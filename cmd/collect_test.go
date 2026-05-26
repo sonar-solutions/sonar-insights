@@ -10,6 +10,14 @@ import (
 	"github.com/sonar-solutions/sonar-insights/internal/sonarqube"
 )
 
+func TestRunCollect_EmptyURL(t *testing.T) {
+	t.Setenv("SONAR_HOST_URL", "")
+	err := runCollect([]string{"bgtasks"}, "", "token", t.TempDir(), 5)
+	if err == nil {
+		t.Fatal("expected error for empty URL, got nil")
+	}
+}
+
 func TestParseOptionalDate_Empty(t *testing.T) {
 	got, err := parseOptionalDate("")
 	if err != nil {

@@ -28,7 +28,7 @@ var collectBgtasksCmd = &cobra.Command{
 const flagOutDir = "out-dir"
 
 func init() {
-	collectCmd.Flags().String("url", "", "SonarQube base URL (env: SONAR_HOST_URL, default: https://sonarcloud.io)")
+	collectCmd.Flags().String("url", "", "SonarQube base URL (env: SONAR_HOST_URL)")
 	collectCmd.Flags().String("token", "", "SonarQube authentication token (env: SONAR_TOKEN)")
 	collectCmd.Flags().String(flagOutDir, "./sonar-data/", "directory to write collected data")
 	collectCmd.Flags().Int("parallel", 5, "number of pages to fetch concurrently")
@@ -59,7 +59,7 @@ func runCollect(targets []string, url, token, outDir string, parallel int) error
 		url = os.Getenv("SONAR_HOST_URL")
 	}
 	if url == "" {
-		url = "https://sonarcloud.io"
+		return fmt.Errorf("--url or SONAR_HOST_URL is required")
 	}
 	if token == "" {
 		token = os.Getenv("SONAR_TOKEN")

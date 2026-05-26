@@ -44,7 +44,7 @@ changelog:
       - "^test:"
 
 release:
-  footer: >-
+  footer: |
     🙏 Thank you for using {{ .ProjectName }}!
 
     ❓ Any questions or issues? Please open an issue at {{ .GitURL }}/issues.

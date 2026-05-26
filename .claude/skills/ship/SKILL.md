@@ -53,7 +53,7 @@ Format:
 
 If `$ARGUMENTS` is provided, use it as the subject line. Otherwise derive it from the staged changes.
 
-Stage only the files relevant to this change. Never use `git add .` blindly.
+Commit the files staged in Phase 2 — do not re-stage.
 
 ## Phase 4 — Push to both remotes
 

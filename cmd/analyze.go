@@ -38,7 +38,7 @@ func init() {
 func runAnalyzeCmd(cmd *cobra.Command, args []string) error {
 	dir, _ := cmd.Flags().GetString("dir")
 	reportDir, _ := cmd.Flags().GetString(flagReportDir)
-	return runAnalyze([]string{"bgtasks"}, dir, reportDir, "", "")
+	return runAnalyze(knownTargets(), dir, reportDir, "", "")
 }
 
 func runAnalyzeBgtasksCmd(cmd *cobra.Command, _ []string) error {

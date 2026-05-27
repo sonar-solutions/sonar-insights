@@ -44,7 +44,7 @@ func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel in
 		return fmt.Errorf("create bgtasks output dir: %w", err)
 	}
 
-	maxExecutedAt := time.Now().Add(-5 * time.Minute).Format("2006-01-02T15:04:05-0700")
+	maxExecutedAt := buildMaxExecutedAt(time.Now())
 	maxExecutedAtEncoded := url.QueryEscape(maxExecutedAt)
 
 	logger.Debug("fetching page 1 to determine total pages")
@@ -165,4 +165,8 @@ func fetchPage(instance sonarqube.SonarInstance, maxExecutedAtEncoded string, pa
 func writePage(body []byte, dir string, page int) error {
 	filename := fmt.Sprintf("background-tasks-page-%04d.json", page)
 	return os.WriteFile(filepath.Join(dir, filename), body, 0o644)
+}
+
+func buildMaxExecutedAt(now time.Time) string {
+	return now.UTC().Add(-5 * time.Minute).Format("2006-01-02T15:04:05+0000")
 }

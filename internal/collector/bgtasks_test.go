@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
+	_ "time/tzdata" // embed IANA timezone database so LoadLocation works in minimal environments (scratch, alpine without tzdata)
 
 	"github.com/sonar-solutions/sonar-insights/internal/sonarqube"
 )
@@ -41,6 +43,15 @@ func makeResponse(total, pageIndex int) []byte {
 	}
 	data, _ := json.Marshal(resp)
 	return data
+}
+
+func TestBuildMaxExecutedAt_AlwaysUTC(t *testing.T) {
+	loc, _ := time.LoadLocation("America/New_York")
+	now := time.Date(2026, 5, 25, 12, 0, 0, 0, loc)
+	got := buildMaxExecutedAt(now)
+	if !strings.HasSuffix(got, "+0000") {
+		t.Errorf("expected +0000 suffix, got %q", got)
+	}
 }
 
 func TestCollectBgTasks_CloudNotSupported(t *testing.T) {

@@ -4,7 +4,7 @@ title: `analyze` parent command hardcodes bgtasks instead of running all targets
 author: code-review
 date: 2026-05-25
 draft-status: ready
-impl-status: not-started
+impl-status: complete
 prerequisites: []
 ---
 

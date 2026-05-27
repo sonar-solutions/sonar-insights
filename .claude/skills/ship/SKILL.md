@@ -9,7 +9,7 @@ You are shipping code for the sonar-insights CLI project. Your job is to validat
 
 ## Phase 1 — Preflight
 
-1. Confirm the working tree is on a feature branch (not `main`). If on `main`, stop and tell the user.
+1. Detect whether you are inside a git worktree by running `git rev-parse --git-dir`. A result ending in `/worktrees/<name>` (or `\.worktrees\<name>` on Windows) means you are in a linked worktree — the branch is already set, no new branch is needed. Otherwise confirm the working tree is on a feature branch (not `main`); if on `main`, stop and tell the user.
 2. Run `git status` to identify modified files. If the tree is clean, stop and tell the user there is nothing to commit.
 3. Confirm with the user which files should be staged if it is not obvious (i.e. unrelated files are modified).
 

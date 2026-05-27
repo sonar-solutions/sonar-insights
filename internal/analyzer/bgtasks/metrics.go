@@ -118,10 +118,7 @@ func AnalyzeDateRange(tasks []BgTask) DateRange {
 		return DateRange{}
 	}
 	earliest := tasks[0].SubmittedAt
-	var latest time.Time
-	if !tasks[0].ExecutedAt.IsZero() {
-		latest = tasks[0].ExecutedAt.UTC()
-	}
+	for _, t := range tasks {
 	latestSubmission := tasks[0].SubmittedAt
 	for _, t := range tasks[1:] {
 		if t.SubmittedAt.Before(earliest) {

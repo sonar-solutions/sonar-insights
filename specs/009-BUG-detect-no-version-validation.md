@@ -4,7 +4,7 @@ title: `Detect` accepts any HTTP 200 body as a SonarQube Server version
 author: code-review
 date: 2026-05-25
 draft-status: ready
-impl-status: in-progress
+impl-status: complete
 prerequisites: []
 ---
 

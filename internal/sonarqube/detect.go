@@ -10,12 +10,12 @@ import (
 
 var sqVersionRE = regexp.MustCompile(`^\d+\.\d+(\.\d+){0,2}$`)
 
-func truncateStr(s string, max int) string {
+func truncateStr(s string, limit int) string {
 	runes := []rune(s)
-	if len(runes) <= max {
+	if len(runes) <= limit {
 		return s
 	}
-	return string(runes[:max]) + "…"
+	return string(runes[:limit]) + "…"
 }
 
 var cloudBaseURLs = []string{

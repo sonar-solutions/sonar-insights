@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func ts(year, month, day, hour, min int) time.Time {
-	return time.Date(year, time.Month(month), day, hour, min, 0, 0, time.UTC)
+func ts(year, month, day, hour, minute int) time.Time {
+	return time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.UTC)
 }
 
 func TestBucketStart_AlignedToFiveMinutes(t *testing.T) {
@@ -176,16 +176,16 @@ func TestCalculateCapacityDemand_GoldenMaster(t *testing.T) {
 	}
 
 	dr := AnalyzeDateRange(tasks)
-	cap := CalculateCapacityDemand(filtered, dr.EarliestSubmission, dr.LatestCompletion)
+	cd := CalculateCapacityDemand(filtered, dr.EarliestSubmission, dr.LatestCompletion)
 
 	// Golden master: TotalBuckets=14138, BusyBucketsCount=15
 	// BusyBucketsCount uses the 24/7 99.9th-percentile threshold against all buckets,
 	// so weekend buckets above that threshold are correctly included.
-	if len(cap.DemandPerBucket) != 14138 {
-		t.Errorf("TotalBuckets=%d, want 14138", len(cap.DemandPerBucket))
+	if len(cd.DemandPerBucket) != 14138 {
+		t.Errorf("TotalBuckets=%d, want 14138", len(cd.DemandPerBucket))
 	}
-	if cap.BusyBucketsCount != 15 {
-		t.Errorf("BusyBucketsCount=%d, want 15", cap.BusyBucketsCount)
+	if cd.BusyBucketsCount != 15 {
+		t.Errorf("BusyBucketsCount=%d, want 15", cd.BusyBucketsCount)
 	}
 }
 

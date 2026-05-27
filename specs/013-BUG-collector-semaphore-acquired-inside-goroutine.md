@@ -3,7 +3,7 @@ spec: 013
 title: Collector spawns all goroutines up front; semaphore only throttles the HTTP call
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -76,18 +76,23 @@ wg.Wait()
 ```
 
 This is the standard Go worker-pool idiom: exactly `parallel` goroutines,
-each pulling work. If `errgroup` is adopted per 012-BUG, this falls out
-naturally from `g.SetLimit(parallel)`.
+each pulling work. Workers call `writePage` (or `fetchPage` + write) directly
+inside the loop — there is no separate results channel. This is consistent
+with the `errgroup` approach in [[012-BUG-collector-error-non-deterministic]],
+which already adopts this worker-pool pattern.
 
 ## Validation
 
-- Add a test using `runtime.NumGoroutine()` immediately after the loop is
-  scheduled (before `wg.Wait()`) to assert the count is bounded.
-  This test will be slightly flaky because of scheduler quirks; an
-  alternative is to count `chan` traffic with a `sync/atomic` counter,
-  capped at `parallel`.
+- This bug is resolved as a side-effect of implementing
+  [[012-BUG-collector-error-non-deterministic]]. If 012 is implemented
+  first using the worker-pool + `errgroup` pattern, no additional change
+  is required here.
+- If implementing this spec independently, use an `atomic.Int64` counter
+  that increments when a goroutine starts and decrements when it finishes.
+  Assert the peak value never exceeds `parallel`. Do not use
+  `runtime.NumGoroutine()` — it is unreliable in tests.
 
 ## Prerequisites
 
-Coordinate with [[012-BUG-collector-error-non-deterministic]] — if that's
-implemented with `errgroup`, this issue disappears.
+Implement after or together with [[012-BUG-collector-error-non-deterministic]].
+The 012 fix already resolves this issue when using the worker-pool approach.

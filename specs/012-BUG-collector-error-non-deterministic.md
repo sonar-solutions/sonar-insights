@@ -3,7 +3,7 @@ spec: 012
 title: Collector and loader return non-deterministic "first error" under concurrent failures
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -60,25 +60,38 @@ follow it. Fixing once, idiomatically, eliminates a class of bug.
 
 ## Proposed fix
 
-Use `errgroup.Group` with `errgroup.WithContext`:
+Use `golang.org/x/sync/errgroup` — it is an approved dependency that directly
+addresses this pattern, replacing the `sync.WaitGroup` + `sync.Once` +
+manual `context.WithCancel` boilerplate with a single purpose-built primitive.
+
+**Collector (`fetchAndWriteRemainingPages`):**
 
 ```go
 g, ctx := errgroup.WithContext(ctx)
-g.SetLimit(parallel)
-for p := 2; p <= totalPages; p++ {
-    page := p
-    g.Go(func() error {
+
+pages := make(chan int)
+g.Go(func() error {
+    defer close(pages)
+    for p := 2; p <= totalPages; p++ {
         select {
         case <-ctx.Done():
             return ctx.Err()
-        default:
+        case pages <- p:
         }
-        r, err := fetchPage(ctx, instance, maxExecutedAtEncoded, page)
-        if err != nil {
-            return fmt.Errorf("page %d: %w", page, err)
-        }
-        if err := writePage(r.body, targetDir, page); err != nil {
-            return fmt.Errorf("page %d: %w", page, err)
+    }
+    return nil
+})
+
+for i := 0; i < parallel; i++ {
+    g.Go(func() error {
+        for page := range pages {
+            r, err := fetchPage(ctx, instance, maxExecutedAtEncoded, page)
+            if err != nil {
+                return fmt.Errorf("page %d: %w", page, err)
+            }
+            if err := writePage(r.body, targetDir, page); err != nil {
+                return fmt.Errorf("page %d: %w", page, err)
+            }
         }
         return nil
     })
@@ -86,27 +99,30 @@ for p := 2; p <= totalPages; p++ {
 return g.Wait()
 ```
 
-`errgroup.Group.Wait` returns the first error in the order it was *reported*
-(not in the order goroutines were started, but it cancels the shared
-`Context` on first error so the rest stop quickly). For both the collector
-and the loader this is the right semantics: fail fast, report deterministic
-context.
+`errgroup.WithContext` cancels `ctx` the moment any callback returns a non-nil
+error, stopping the page producer and all remaining workers. `g.Wait()` returns
+the first non-nil error automatically — `sync.Once` and manual `cancel()` calls
+are no longer needed.
 
-`errgroup` is in the Go x/sync repo (`golang.org/x/sync/errgroup`). It is
-not yet an approved external dependency per CLAUDE.md; if approval is not
-desired, build the same fail-fast pattern with stdlib (`context` +
-`sync.Once` to capture the first error).
+This is a fixed worker-pool pattern (exactly `parallel` goroutines) that
+also resolves [[013-BUG-collector-semaphore-acquired-inside-goroutine]].
+
+**Loader (`loadFilesParallel`):** The loader already exits immediately on
+the first error, so the goroutine spawning pattern is the main issue.
+Apply the same worker-pool + `errgroup` approach for consistency:
+goroutines pull file paths from a channel; the first error cancels the
+context and is returned via `g.Wait()`.
 
 ## Validation
 
-- A new test that injects errors on two different pages and asserts the
-  returned error mentions a deterministic page (e.g. the lowest-numbered
-  one). With `errgroup`, you have to choose what "first" means — picking
-  "lowest page index" gives a stable contract.
-- A test that asserts the collector stops issuing requests after the first
-  failure (count requests; expect ≤ N).
+- A test that makes the test server return 500 for page 3 and asserts
+  `CollectBgTasks` returns a non-nil error wrapping "page 3". The exact
+  page number returned is the first one encountered by goroutine scheduling,
+  so do not assert a specific page number — only assert a non-nil error
+  containing "page".
+- A test that counts HTTP requests after a failure and asserts the collector
+  issues significantly fewer requests than `totalPages` (fail-fast working).
 
 ## Prerequisites
 
-If choosing `errgroup`, ask the user for approval to add
-`golang.org/x/sync` per CLAUDE.md's external-dependency rule.
+None.

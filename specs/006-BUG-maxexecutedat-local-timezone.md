@@ -3,7 +3,7 @@ spec: 006
 title: `maxExecutedAt` is formatted using local timezone, breaking determinism
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -47,20 +47,38 @@ real bugs in the next change.
 
 ## Proposed fix
 
-Compute the cutoff in UTC and use an explicit UTC format:
+Extract the cutoff into an unexported helper and compute it in UTC with a
+hardcoded `+0000` offset (not `time.RFC3339`, which uses the `Z` suffix whose
+acceptance by SonarQube's parser is unverified):
 
 ```go
-maxExecutedAt := time.Now().UTC().Add(-5 * time.Minute).Format("2006-01-02T15:04:05+0000")
+func buildMaxExecutedAt(now time.Time) string {
+    return now.UTC().Add(-5 * time.Minute).Format("2006-01-02T15:04:05+0000")
+}
 ```
 
-Or, since SonarQube accepts RFC 3339, use `time.RFC3339` — but verify
-SonarQube's actual parser tolerates the `Z` suffix first.
+Call from `CollectBgTasks`:
+```go
+maxExecutedAt := buildMaxExecutedAt(time.Now())
+```
+
+`buildMaxExecutedAt` lives in `internal/collector/bgtasks.go` alongside the
+rest of the collector logic.
 
 ## Validation
 
-Unit test that calls a small helper (`buildMaxExecutedAt(now time.Time) string`)
-and asserts the returned string ends with `+0000` regardless of the input's
-location.
+Add a test in `bgtasks_test.go` for `buildMaxExecutedAt`:
+
+```go
+func TestBuildMaxExecutedAt_AlwaysUTC(t *testing.T) {
+    loc, _ := time.LoadLocation("America/New_York")
+    now := time.Date(2026, 5, 25, 12, 0, 0, 0, loc)
+    got := buildMaxExecutedAt(now)
+    if !strings.HasSuffix(got, "+0000") {
+        t.Errorf("expected +0000 suffix, got %q", got)
+    }
+}
+```
 
 ## Prerequisites
 

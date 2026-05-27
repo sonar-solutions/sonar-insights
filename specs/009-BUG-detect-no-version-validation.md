@@ -3,7 +3,7 @@ spec: 009
 title: `Detect` accepts any HTTP 200 body as a SonarQube Server version
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -52,28 +52,40 @@ The detection trusts anything that responds with 200 OK to
 
 Validate the body matches a SonarQube version pattern before trusting it:
 
+Define a package-level helper `truncateStr` (not `truncate`, to avoid shadowing
+stdlib) and a compiled regex in `detect.go`:
+
 ```go
-var sqVersionRE = regexp.MustCompile(`^\d+\.\d+(\.\d+){0,2}(\.\d+)?$`)
+var sqVersionRE = regexp.MustCompile(`^\d+\.\d+(\.\d+){0,2}$`)
+
+func truncateStr(s string, max int) string {
+    if len(s) <= max {
+        return s
+    }
+    return s[:max] + "…"
+}
 
 trimmed := strings.TrimSpace(string(body))
 if !sqVersionRE.MatchString(trimmed) {
     return SonarInstance{}, fmt.Errorf(
-        "URL responded to /api/server/version but body does not look like a SonarQube version: %q (got %d bytes, content-type %q)",
-        truncate(trimmed, 80), len(body), resp.Header.Get("Content-Type"))
+        "URL responded to /api/server/version but body does not look like a SonarQube version: %q (got %d bytes)",
+        truncateStr(trimmed, 80), len(body))
 }
 ```
 
-Additionally, consider checking `Content-Type` is `text/plain` (or absent),
-and rejecting HTML bodies outright.
+Note: the trailing `(\.\d+)?` in the original regex is redundant given
+`(\.\d+){0,2}`; the corrected regex above uses `{0,2}` only, allowing
+versions with 2 to 4 numeric parts (`major.minor[.patch[.build]]`).
 
 ## Validation
 
 Add tests covering:
 
-- Body = `"</html>"` → error mentioning content-type
-- Body = `"10"` (single token) — decide: reject or treat as major-only
-- Body = empty → error
-- Body = the existing valid versions still pass
+- Body = `"</html>"` → error (HTML does not match the version regex)
+- Body = `"10"` → rejected (regex requires at least `major.minor`, two parts)
+- Body = `""` (empty after trim) → error
+- Body = `"10.8.0.91563"` → passes
+- Body = `"2026.1.0.119033"` → passes
 
 ## Prerequisites
 

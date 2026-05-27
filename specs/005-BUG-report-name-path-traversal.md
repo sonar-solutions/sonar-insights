@@ -3,7 +3,7 @@ spec: 005
 title: `--report-name` allows path traversal outside `--report-dir`
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -63,15 +63,34 @@ func validateReportName(name string) error {
 }
 ```
 
-Call from `runAnalyzeBgtasksCmd` (or wherever the option lands) before
-`runAnalyze`. After validation, an additional defensive check on the resolved
-path (e.g. `filepath.Rel(reportDir, reportPath)` returning a non-`..` value)
-is cheap insurance.
+Place `validateReportName` in `cmd/analyze.go`. Call it in
+`runAnalyzeBgtasksCmd` immediately after reading the `--report-name` flag,
+before passing it to `runAnalyze`. The `strings.ContainsAny(name, "/\\")` check
+intentionally rejects both forward and back slashes unconditionally —
+this is the correct stance for a CLI tool that may run on either OS.
+
+An additional defensive check after building the path is optional but
+recommended:
+
+```go
+if rel, err := filepath.Rel(reportDir, reportPath); err != nil || strings.HasPrefix(rel, "..") {
+    return fmt.Errorf("report path escapes --report-dir: %s", reportPath)
+}
+```
 
 ## Validation
 
-Unit tests for `validateReportName` covering: empty, `../escape`, `/abs`,
-`a/b`, `.`, `.hidden`, the happy path.
+Write tests in `cmd/analyze_test.go` (create the file, following the pattern
+of `cmd/collect_test.go`). Test `validateReportName` directly:
+
+- `""` → error containing "must not be empty"
+- `"../escape"` → error containing "path separator"
+- `"/abs"` → error containing "path separator"
+- `"a/b"` → error containing "path separator"
+- `"."` → error containing "'.'"
+- `".hidden"` → error containing "'.'"
+- `"my-report"` → nil (happy path)
+- `"report_2026"` → nil (happy path)
 
 ## Prerequisites
 

@@ -3,7 +3,7 @@ spec: 011
 title: `fetchPage` discards response body on non-OK status, losing diagnostic context
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -51,34 +51,63 @@ This is also true of the `Detect` path, which has the same pattern.
 
 ## Proposed fix
 
-Read up to N bytes of the body on error paths and include in the error:
+Define `errorBodySnippet` in `internal/sonarqube/httperrors.go` (a new
+file) so both the collector and `detect.go` can use it without duplication:
 
 ```go
-func errorBodySnippet(resp *http.Response) string {
+package sonarqube
+
+import (
+    "io"
+    "net/http"
+)
+
+// ErrorBodySnippet reads up to 512 bytes of a non-OK response body
+// and returns it as a string for inclusion in error messages.
+func ErrorBodySnippet(resp *http.Response) string {
     const max = 512
     body, _ := io.ReadAll(io.LimitReader(resp.Body, max+1))
     if len(body) > max {
-        body = append(body[:max], '…')
+        body = append(body[:max], []byte("…")...)
     }
     return string(body)
 }
+```
 
+In `internal/collector/bgtasks.go`, apply to **all** non-2xx paths —
+401, 403, and the generic case:
+
+```go
+case http.StatusUnauthorized:
+    return pageResult{}, fmt.Errorf("authentication failed (HTTP 401): %s",
+        sonarqube.ErrorBodySnippet(resp))
+case http.StatusForbidden:
+    return pageResult{}, fmt.Errorf("access forbidden (HTTP 403): %s",
+        sonarqube.ErrorBodySnippet(resp))
+...
 if resp.StatusCode != http.StatusOK {
     return pageResult{}, fmt.Errorf("unexpected status %d from /api/ce/activity: %s",
-        resp.StatusCode, errorBodySnippet(resp))
+        resp.StatusCode, sonarqube.ErrorBodySnippet(resp))
 }
 ```
 
-Apply the same helper in `detect.go`.
+In `internal/sonarqube/detect.go`, apply to the non-2xx paths in `Detect`
+the same way.
+
+Note: `ErrorBodySnippet` must be called before the deferred
+`resp.Body.Close()` returns. This is safe since the body is read on the
+error path before the function returns.
 
 ## Validation
 
-Update existing tests:
+Update existing tests in `bgtasks_test.go`:
 
-- `TestCollectBgTasks_401` to assert the SonarQube error message is included
-  in the wrapped error.
-- `TestCollectBgTasks_UnexpectedStatus` to assert any test-provided body is
-  echoed.
+- `TestCollectBgTasks_401`: make the test server write a JSON body
+  `{"errors":[{"msg":"Invalid authentication"}]}` and assert the returned
+  error contains `"Invalid authentication"`.
+- `TestCollectBgTasks_UnexpectedStatus`: make the test server write a body
+  such as `"maintenance mode"` and assert the returned error contains
+  `"maintenance mode"`.
 
 ## Prerequisites
 

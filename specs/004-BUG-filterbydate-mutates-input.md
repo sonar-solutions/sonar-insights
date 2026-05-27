@@ -3,7 +3,7 @@ spec: 004
 title: `filterByDate` aliases the caller's backing array and mutates input
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -75,21 +75,28 @@ re-introduced under a clearly named function (`filterByDateInPlace`).
 
 ## Validation
 
-Add a unit test that retains a reference to the original slice and asserts
-its contents are unchanged after `filterByDate`:
+Add a unit test `TestFilterByDate_DoesNotMutateInput` in `bgtasks_test.go`.
+Use the existing `date()` and `ptr()` helpers already in that file. `BgTask`
+is a plain struct with comparable fields, so `slices.Equal` works directly
+without a custom comparator.
 
 ```go
-tasks := []BgTask{
-    {ID: "a", SubmittedAt: ...},
-    {ID: "b", SubmittedAt: ...},
-    {ID: "c", SubmittedAt: ...},
-}
-original := slices.Clone(tasks)
-_ = filterByDate(tasks, fromExcludingA, nil)
-if !slices.EqualFunc(tasks, original, bgTaskEqual) {
-    t.Errorf("filterByDate mutated input")
+func TestFilterByDate_DoesNotMutateInput(t *testing.T) {
+    from := ptr(date(2026, 2, 1))
+    tasks := []BgTask{
+        task("a", date(2026, 1, 15), time.Time{}), // before from — filtered out
+        task("b", date(2026, 2, 10), time.Time{}), // in range
+        task("c", date(2026, 3, 5), time.Time{}),  // in range
+    }
+    original := slices.Clone(tasks)
+    _ = filterByDate(tasks, from, nil)
+    if !slices.Equal(tasks, original) {
+        t.Errorf("filterByDate mutated the input slice: got %v, want %v", tasks, original)
+    }
 }
 ```
+
+Add `"slices"` to the import block in `bgtasks_test.go`.
 
 ## Prerequisites
 

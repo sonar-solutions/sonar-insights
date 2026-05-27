@@ -3,7 +3,7 @@ spec: 010
 title: `AnalyzeDateRange.LatestCompletion` falls back to `SubmittedAt`, deviating from spec
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -56,38 +56,62 @@ behaviour, not the spec. It memorialises the bug.
 
 ## Proposed fix
 
-Decide intentionally between two readings of the spec:
+Implement Option A: `LatestCompletion` is the max non-zero `executedAt`.
+Only the `latest` variable computation changes. The `latestSubmission`
+tracking (used for `DateRangeInDays`) stays unchanged.
 
-**Option A — strictly follow the spec.** `LatestCompletion` is the max
-non-zero `executedAt`. If no task has executed yet, return zero.
+In `AnalyzeDateRange`, replace the `executedOrSubmitted` call:
 
 ```go
-func AnalyzeDateRange(tasks []BgTask) DateRange {
-    ...
-    var latest time.Time
-    for _, t := range tasks {
-        if !t.ExecutedAt.IsZero() && t.ExecutedAt.After(latest) {
-            latest = t.ExecutedAt
-        }
-        ...
+// Before:
+executed := executedOrSubmitted(t)
+if executed.After(latest) {
+    latest = executed
+}
+
+// After:
+if !t.ExecutedAt.IsZero() {
+    if executed := t.ExecutedAt.UTC(); executed.After(latest) {
+        latest = executed
     }
-    ...
 }
 ```
 
-**Option B — update the spec.** If the intended behaviour really is "max of
-either timestamp" (e.g. because the C# reference does this too), amend spec
-002 to say so explicitly. Then this isn't a bug, just a documentation gap.
+Delete `executedOrSubmitted` once it has no callers.
 
-Either way, the test must reflect the spec, not be authoritative on its own.
+**Zero LatestCompletion:** If all tasks have a zero `ExecutedAt` (e.g.
+the entire dataset is queued or failed tasks), `LatestCompletion` will be
+the zero `time.Time`. Downstream:
+
+- `chartRange` will produce an empty per-day map (the date loop does not
+  iterate when end is zero). This is correct — there is nothing to chart.
+- `CalculateCapacityDemand` will produce no buckets. The report should
+  render an empty capacity section rather than panic. Verify that both
+  callers handle a zero `LatestCompletion` without crashing before shipping.
 
 ## Validation
 
-- Decide A or B (probably A — the spec is recent and explicit).
-- Update `TestAnalyzeDateRange_ZeroExecutedAt` to match.
-- Add a test covering a mixed dataset: one task with `ExecutedAt = day 5`,
-  one task with `SubmittedAt = day 10, ExecutedAt = zero` → `LatestCompletion
-  = day 5`, not day 10.
+- Update `TestAnalyzeDateRange_ZeroExecutedAt`: the existing assertion
+  `LatestCompletion.Equal(submitted)` (the old fallback) must change to
+  `LatestCompletion.IsZero()`:
+  ```go
+  if !dr.LatestCompletion.IsZero() {
+      t.Errorf("LatestCompletion = %v, want zero when no task has ExecutedAt", dr.LatestCompletion)
+  }
+  ```
+
+- Add `TestAnalyzeDateRange_MixedDataset` — mixed executed/unexecuted tasks:
+  ```go
+  // one task executed on day 5, one queued task submitted on day 10
+  tasks := []BgTask{
+      {SubmittedAt: day(1), ExecutedAt: day(5)},
+      {SubmittedAt: day(10), ExecutedAt: time.Time{}},
+  }
+  dr := AnalyzeDateRange(tasks)
+  if !dr.LatestCompletion.Equal(day(5)) {
+      t.Errorf("LatestCompletion = %v, want day 5", dr.LatestCompletion)
+  }
+  ```
 
 ## Prerequisites
 

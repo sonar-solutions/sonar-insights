@@ -3,7 +3,7 @@ spec: 008
 title: `mathutil.toFloat64` silently returns 0 for non-numeric ordered types
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -46,28 +46,36 @@ switch on every element — wasteful when the constraint could be narrowed.
 
 ## Proposed fix
 
-Narrow the type constraint to numeric types only. Define a small constraint:
+Narrow the type constraint to numeric types only. Define the constraint as
+unexported (it is an implementation detail of this package):
 
 ```go
-type Number interface {
+type number interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 |
 		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
 		~float32 | ~float64
 }
 
-func CalculatePercentile[T Number](values []T, p float64) float64 { ... }
+func CalculatePercentile[T number](values []T, p float64) float64 { ... }
 ```
 
 With this constraint the compiler rejects non-numeric callers at the call
 site, and `toFloat64` can be replaced with `float64(v)`. The 12-case type
-switch and `any`-boxing both disappear.
+switch and `any`-boxing both disappear. **Delete `toFloat64` entirely** once
+the replacement is complete — it has no callers outside `CalculatePercentile`.
 
 ## Validation
 
-- Add a compile-time test in `mathutil` that uses `string` and verify the
-  file no longer compiles (negative-compile checks aren't standard in Go;
-  document the expected error in a comment or use `analysistest`).
 - Existing percentile tests continue to pass with the new constraint.
+  All current callers (`capacity.go` with `[]int`, `metrics.go` with
+  `[]float64`) are numeric and require no changes.
+- Negative compile tests are not standard Go. Instead, add a comment near
+  the type definition:
+  ```go
+  // number is intentionally unexported. CalculatePercentile only accepts
+  // numeric types. Passing []string{} will produce a compile-time error.
+  ```
+  The type system itself is the enforcement.
 
 ## Prerequisites
 

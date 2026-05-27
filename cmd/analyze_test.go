@@ -15,6 +15,7 @@ func TestValidateReportName(t *testing.T) {
 		{input: "../escape", wantErr: true, errContains: "path separator"},
 		{input: "/abs", wantErr: true, errContains: "path separator"},
 		{input: "a/b", wantErr: true, errContains: "path separator"},
+		{input: "a\\b", wantErr: true, errContains: "path separator"},
 		{input: ".", wantErr: true, errContains: "'.'"},
 		{input: ".hidden", wantErr: true, errContains: "'.'"},
 		{input: "my-report", wantErr: false},

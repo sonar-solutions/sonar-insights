@@ -1,9 +1,19 @@
 package cmd
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
+
+func TestAnalyzeHelp_ContainsDataDir(t *testing.T) {
+	buf := new(bytes.Buffer)
+	analyzeCmd.SetOut(buf)
+	_ = analyzeCmd.Help()
+	if !strings.Contains(buf.String(), "--data-dir") {
+		t.Errorf("analyze --help output does not contain --data-dir:\n%s", buf.String())
+	}
+}
 
 func TestValidateReportName(t *testing.T) {
 	cases := []struct {

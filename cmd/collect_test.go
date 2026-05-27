@@ -1,14 +1,25 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/sonar-solutions/sonar-insights/internal/sonarqube"
 )
+
+func TestCollectHelp_ContainsDataDir(t *testing.T) {
+	buf := new(bytes.Buffer)
+	collectCmd.SetOut(buf)
+	_ = collectCmd.Help()
+	if !strings.Contains(buf.String(), "--data-dir") {
+		t.Errorf("collect --help output does not contain --data-dir:\n%s", buf.String())
+	}
+}
 
 func TestRunCollect_EmptyURL(t *testing.T) {
 	t.Setenv("SONAR_HOST_URL", "")

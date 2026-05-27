@@ -25,7 +25,7 @@ var analyzeBgtasksCmd = &cobra.Command{
 const flagReportDir = "report-dir"
 
 func init() {
-	analyzeCmd.Flags().String("dir", "./sonar-data/", "directory containing collected data")
+	analyzeCmd.Flags().String(flagDataDir, "./sonar-data/", "directory containing collected data")
 	analyzeCmd.Flags().String(flagReportDir, "./sonar-reports/", "directory where reports are written")
 
 	analyzeBgtasksCmd.Flags().String("from", "", "include tasks submitted on or after this date (YYYY-MM-DD, UTC)")
@@ -37,13 +37,13 @@ func init() {
 }
 
 func runAnalyzeCmd(cmd *cobra.Command, args []string) error {
-	dir, _ := cmd.Flags().GetString("dir")
+	dir, _ := cmd.Flags().GetString(flagDataDir)
 	reportDir, _ := cmd.Flags().GetString(flagReportDir)
 	return runAnalyze(knownTargets(), dir, reportDir, "", "")
 }
 
 func runAnalyzeBgtasksCmd(cmd *cobra.Command, _ []string) error {
-	dir, _ := cmd.Parent().Flags().GetString("dir")
+	dir, _ := cmd.Parent().Flags().GetString(flagDataDir)
 	reportDir, _ := cmd.Parent().Flags().GetString(flagReportDir)
 	from, _ := cmd.Flags().GetString("from")
 	to, _ := cmd.Flags().GetString("to")

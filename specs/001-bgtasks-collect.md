@@ -133,7 +133,7 @@ All API calls use the single `*http.Client` held in `SonarInstance`. `sonarqube.
 
 ## Collection metadata
 
-After successful instance detection, the app writes `<out-dir>/collect-metadata.json` before any target runs. If instance detection fails, the app stops and this file is not written.
+After successful instance detection, the app writes `<data-dir>/collect-metadata.json` before any target runs. If instance detection fails, the app stops and this file is not written.
 
 Schema:
 
@@ -204,9 +204,9 @@ This flag is not currently implemented and must be added as part of this spec.
 
 ### Output
 
-The entire output directory (`<out-dir>`) is deleted before any collection begins if it already exists.
+The entire output directory (`<data-dir>`) is deleted before any collection begins if it already exists.
 
-Collected data is written to `<out-dir>/bgtasks/`. Each API page is saved as a separate file:
+Collected data is written to `<data-dir>/bgtasks/`. Each API page is saved as a separate file:
 
 ```
 background-tasks-page-0001.json

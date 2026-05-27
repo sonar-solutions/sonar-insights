@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	_ "time/tzdata" // embed IANA timezone database so LoadLocation works in minimal environments (scratch, alpine without tzdata)
 
 	"github.com/sonar-solutions/sonar-insights/internal/sonarqube"
 )

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sonar-solutions/sonar-insights/internal/analyzer"
@@ -47,7 +48,23 @@ func runAnalyzeBgtasksCmd(cmd *cobra.Command, _ []string) error {
 	from, _ := cmd.Flags().GetString("from")
 	to, _ := cmd.Flags().GetString("to")
 	reportName, _ := cmd.Flags().GetString("report-name")
+	if err := validateReportName(reportName); err != nil {
+		return err
+	}
 	return runAnalyze([]string{"bgtasks"}, dir, reportDir, from, to, withReportName(reportName))
+}
+
+func validateReportName(name string) error {
+	if name == "" {
+		return fmt.Errorf("--report-name must not be empty")
+	}
+	if strings.ContainsAny(name, `/\`) {
+		return fmt.Errorf("--report-name must not contain path separators: %q", name)
+	}
+	if strings.HasPrefix(name, ".") {
+		return fmt.Errorf("--report-name must not begin with '.': %q", name)
+	}
+	return nil
 }
 
 type analyzeOptions struct {

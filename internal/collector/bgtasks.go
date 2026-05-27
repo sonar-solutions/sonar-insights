@@ -32,6 +32,68 @@ type asyncResult struct {
 	err  error
 }
 
+func prepareTargetDir(targetDir string) error {
+	abs, err := filepath.Abs(targetDir)
+	if err != nil {
+		return fmt.Errorf("resolve target directory path: %w", err)
+	}
+	if err := assertSafeTargetPath(abs); err != nil {
+		return fmt.Errorf("refusing to remove dangerous path %s: %w", targetDir, err)
+	}
+	if err := os.RemoveAll(abs); err != nil {
+		return fmt.Errorf("remove target directory: %w", err)
+	}
+	if err := os.MkdirAll(abs, 0o755); err != nil {
+		return fmt.Errorf("create target directory: %w", err)
+	}
+	return nil
+}
+
+var dangerousSystemPaths = []string{"/", "/usr", "/etc", "/var", "/opt", "/bin", "/sbin"}
+
+func assertSafeTargetPath(abs string) error {
+	for _, root := range dangerousSystemPaths {
+		if abs == root {
+			return fmt.Errorf("matches system root %s", root)
+		}
+	}
+	if absMatchesEnvPath("HOME", abs) {
+		return fmt.Errorf("matches home directory")
+	}
+	if absMatchesEnvPath("GOPATH", abs) {
+		return fmt.Errorf("matches GOPATH")
+	}
+	if exe, err := os.Executable(); err == nil && abs == filepath.Dir(exe) {
+		return fmt.Errorf("matches executable directory")
+	}
+	if pathDepth(abs) < 2 {
+		return fmt.Errorf("path too shallow (must be at least 2 levels below root)")
+	}
+	return nil
+}
+
+func absMatchesEnvPath(envVar, abs string) bool {
+	if val := os.Getenv(envVar); val != "" {
+		if valAbs, err := filepath.Abs(val); err == nil {
+			return abs == valAbs
+		}
+	}
+	return false
+}
+
+func pathDepth(abs string) int {
+	depth := 0
+	for p := abs; ; {
+		parent := filepath.Dir(p)
+		if parent == p {
+			break
+		}
+		depth++
+		p = parent
+	}
+	return depth
+}
+
 func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel int, logger *slog.Logger) error {
 	if instance.Product == sonarqube.Cloud {
 		return fmt.Errorf("target bgtasks is not supported on SonarQube Cloud (uses Server-only /api/ce/activity)")
@@ -40,8 +102,8 @@ func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel in
 	logger.Info("collecting background tasks")
 
 	targetDir := filepath.Join(outDir, "bgtasks")
-	if err := os.MkdirAll(targetDir, 0o755); err != nil {
-		return fmt.Errorf("create bgtasks output dir: %w", err)
+	if err := prepareTargetDir(targetDir); err != nil {
+		return fmt.Errorf("prepare bgtasks output dir: %w", err)
 	}
 
 	maxExecutedAt := time.Now().Add(-5 * time.Minute).Format("2006-01-02T15:04:05-0700")

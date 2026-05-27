@@ -63,7 +63,7 @@ func TestParseOptionalDate_InvalidFormat(t *testing.T) {
 }
 
 func TestPrepareOutputDir_DangerousPath(t *testing.T) {
-	cases := []string{"/", ".", ".."}
+	cases := []string{"/", "/usr"}
 	if home := os.Getenv("HOME"); home != "" {
 		cases = append(cases, home)
 	}
@@ -84,7 +84,7 @@ func TestPrepareOutputDir_CreatesDir(t *testing.T) {
 	}
 }
 
-func TestPrepareOutputDir_RemovesExistingContent(t *testing.T) {
+func TestPrepareOutputDir_PreservesExistingContent(t *testing.T) {
 	target := t.TempDir()
 	sentinel := filepath.Join(target, "sentinel.txt")
 	if err := os.WriteFile(sentinel, []byte("existing"), 0o644); err != nil {
@@ -93,11 +93,8 @@ func TestPrepareOutputDir_RemovesExistingContent(t *testing.T) {
 	if err := prepareOutputDir(target); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
-		t.Error("expected existing file to be removed after prepareOutputDir")
-	}
-	if _, err := os.Stat(target); err != nil {
-		t.Errorf("output directory should exist after recreation: %v", err)
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Error("expected existing file to be preserved after prepareOutputDir")
 	}
 }
 

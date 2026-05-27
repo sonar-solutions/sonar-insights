@@ -43,6 +43,69 @@ func makeResponse(total, pageIndex int) []byte {
 	return data
 }
 
+func TestPrepareTargetDir_DangerousPath(t *testing.T) {
+	cases := []string{"/", "/usr"}
+	if home := os.Getenv("HOME"); home != "" {
+		cases = append(cases, home)
+	}
+	for _, p := range cases {
+		if err := prepareTargetDir(p); err == nil {
+			t.Errorf("prepareTargetDir(%q): expected error for dangerous path, got nil", p)
+		}
+	}
+}
+
+func TestPrepareTargetDir_DeletesAndRecreates(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "sub", "target")
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	sentinel := filepath.Join(target, "old.json")
+	if err := os.WriteFile(sentinel, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+	if err := prepareTargetDir(target); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Error("expected stale file to be removed after prepareTargetDir")
+	}
+	if _, err := os.Stat(target); err != nil {
+		t.Errorf("target directory should exist after prepareTargetDir: %v", err)
+	}
+}
+
+func TestCollectBgTasks_PreservesSiblingDir(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(makeResponse(1, 1))
+	}))
+	defer srv.Close()
+
+	outDir := t.TempDir()
+	inst := makeInstance(srv.URL)
+
+	if err := CollectBgTasks(inst, outDir, 5, noopLogger()); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+
+	siblingFile := filepath.Join(outDir, "metrics", "foo.json")
+	if err := os.MkdirAll(filepath.Dir(siblingFile), 0o755); err != nil {
+		t.Fatalf("create sibling dir: %v", err)
+	}
+	if err := os.WriteFile(siblingFile, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write sibling file: %v", err)
+	}
+
+	if err := CollectBgTasks(inst, outDir, 5, noopLogger()); err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+
+	if _, err := os.Stat(siblingFile); err != nil {
+		t.Errorf("sibling file should be preserved after collect bgtasks: %v", err)
+	}
+}
+
 func TestCollectBgTasks_CloudNotSupported(t *testing.T) {
 	inst := sonarqube.SonarInstance{
 		Product: sonarqube.Cloud,

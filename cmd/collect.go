@@ -96,15 +96,60 @@ func runCollect(targets []string, url, token, outDir string, parallel int) error
 	return nil
 }
 
+var dangerousSystemPaths = []string{"/", "/usr", "/etc", "/var", "/opt", "/bin", "/sbin"}
+
+func absMatchesEnvPath(envVar, abs string) bool {
+	if val := os.Getenv(envVar); val != "" {
+		if valAbs, err := filepath.Abs(val); err == nil {
+			return abs == valAbs
+		}
+	}
+	return false
+}
+
+func pathDepth(abs string) int {
+	depth := 0
+	for p := abs; ; {
+		parent := filepath.Dir(p)
+		if parent == p {
+			break
+		}
+		depth++
+		p = parent
+	}
+	return depth
+}
+
+func assertSafePath(abs string) error {
+	for _, root := range dangerousSystemPaths {
+		if abs == root {
+			return fmt.Errorf("matches system root %s", root)
+		}
+	}
+	if absMatchesEnvPath("HOME", abs) {
+		return fmt.Errorf("matches home directory")
+	}
+	if absMatchesEnvPath("GOPATH", abs) {
+		return fmt.Errorf("matches GOPATH")
+	}
+	if exe, err := os.Executable(); err == nil && abs == filepath.Dir(exe) {
+		return fmt.Errorf("matches executable directory")
+	}
+	if pathDepth(abs) < 2 {
+		return fmt.Errorf("path too shallow (must be at least 2 levels below root)")
+	}
+	return nil
+}
+
 func prepareOutputDir(outDir string) error {
-	cleaned := filepath.Clean(outDir)
-	if cleaned == "/" || cleaned == "." || cleaned == ".." || cleaned == os.Getenv("HOME") {
-		return fmt.Errorf("refusing to remove dangerous path: %s", outDir)
+	abs, err := filepath.Abs(outDir)
+	if err != nil {
+		return fmt.Errorf("resolve output directory path: %w", err)
 	}
-	if err := os.RemoveAll(outDir); err != nil {
-		return fmt.Errorf("remove output directory: %w", err)
+	if err := assertSafePath(abs); err != nil {
+		return fmt.Errorf("refusing to use dangerous path %s: %w", outDir, err)
 	}
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
 	return nil

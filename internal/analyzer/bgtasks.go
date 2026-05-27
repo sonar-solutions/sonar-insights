@@ -58,14 +58,14 @@ func AnalyzeBgTasks(dir, reportDir, reportName string, from, to *time.Time, logg
 	charts := bgtasks.AnalyzeCharts(tasks, dr, pm, fromTime, toTime)
 
 	nonIssueSync := filterType(tasks, "ISSUE_SYNC")
-	cap := bgtasks.CalculateCapacityDemand(nonIssueSync, dr.EarliestSubmission, dr.LatestCompletion)
+	cd := bgtasks.CalculateCapacityDemand(nonIssueSync, dr.EarliestSubmission, dr.LatestCompletion)
 
 	results := bgtasks.AnalysisResults{
 		DateRange:       dr,
 		Overall:         overall,
 		ProjectAnalysis: pm,
 		Charts:          charts,
-		CapacityDemand:  cap,
+		CapacityDemand:  cd,
 	}
 
 	if err := os.MkdirAll(reportDir, 0o755); err != nil {

@@ -99,11 +99,11 @@ func makeAnalysis(label string, util float64, bucketCount int) PercentileAnalysi
 }
 
 func TestComputeRecommendation_AllBucketsOnly(t *testing.T) {
-	cap := CapacityDemandResults{
+	cd := CapacityDemandResults{
 		BucketLengthMinutes: bucketLengthMin,
 		PercentileAnalyses:  []PercentileAnalysis{makeAnalysis("All Buckets (24/7)", 60.0, 100)},
 	}
-	rec := computeRecommendation(cap)
+	rec := computeRecommendation(cd)
 	if rec == nil {
 		t.Fatal("expected recommendation, got nil")
 	}
@@ -117,14 +117,14 @@ func TestComputeRecommendation_AllBucketsOnly(t *testing.T) {
 
 func TestComputeRecommendation_WeekdayWins(t *testing.T) {
 	// Weekday has higher utilization than all-buckets → should be selected.
-	cap := CapacityDemandResults{
+	cd := CapacityDemandResults{
 		BucketLengthMinutes: bucketLengthMin,
 		PercentileAnalyses: []PercentileAnalysis{
 			makeAnalysis("All Buckets (24/7)", 60.0, 100),
 			makeAnalysis("Weekday Buckets Only", 150.0, 50), // >100% → 2 workers
 		},
 	}
-	rec := computeRecommendation(cap)
+	rec := computeRecommendation(cd)
 	if rec == nil {
 		t.Fatal("expected recommendation, got nil")
 	}
@@ -138,14 +138,14 @@ func TestComputeRecommendation_WeekdayWins(t *testing.T) {
 
 func TestComputeRecommendation_AllBucketsWins(t *testing.T) {
 	// All-buckets has higher utilization than weekday → should be selected.
-	cap := CapacityDemandResults{
+	cd := CapacityDemandResults{
 		BucketLengthMinutes: bucketLengthMin,
 		PercentileAnalyses: []PercentileAnalysis{
 			makeAnalysis("All Buckets (24/7)", 150.0, 100), // >100% → 2 workers
 			makeAnalysis("Weekday Buckets Only", 60.0, 50),
 		},
 	}
-	rec := computeRecommendation(cap)
+	rec := computeRecommendation(cd)
 	if rec == nil {
 		t.Fatal("expected recommendation, got nil")
 	}
@@ -158,8 +158,8 @@ func TestComputeRecommendation_AllBucketsWins(t *testing.T) {
 }
 
 func TestComputeRecommendation_NoData(t *testing.T) {
-	cap := CapacityDemandResults{PercentileAnalyses: nil}
-	if rec := computeRecommendation(cap); rec != nil {
+	cd := CapacityDemandResults{PercentileAnalyses: nil}
+	if rec := computeRecommendation(cd); rec != nil {
 		t.Errorf("expected nil recommendation for empty analyses, got %+v", rec)
 	}
 }

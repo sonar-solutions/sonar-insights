@@ -173,9 +173,9 @@ func buildProjectSection(results AnalysisResults) *rptgen.Section {
 	return s
 }
 
-func buildCapacitySection(cap CapacityDemandResults) *rptgen.Section {
+func buildCapacitySection(cd CapacityDemandResults) *rptgen.Section {
 	s := rptgen.NewSection("Capacity Demand Analysis")
-	s.AddElement(&rptgen.FreeText{Content: buildCapacityHTML(cap), IsHTML: true})
+	s.AddElement(&rptgen.FreeText{Content: buildCapacityHTML(cd), IsHTML: true})
 	return s
 }
 
@@ -317,11 +317,11 @@ func ordinal(n int) string {
 
 const recommendationPercentile = 0.99
 
-func buildCapacityHTML(cap CapacityDemandResults) string {
-	if len(cap.PercentileAnalyses) == 0 {
+func buildCapacityHTML(cd CapacityDemandResults) string {
+	if len(cd.PercentileAnalyses) == 0 {
 		return "<p>No capacity demand analysis data available.</p>"
 	}
-	rec := computeRecommendation(cap)
+	rec := computeRecommendation(cd)
 
 	var sb strings.Builder
 	sb.WriteString("<div style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; padding: 0px 25px; margin: 5px 0;'>")
@@ -329,7 +329,7 @@ func buildCapacityHTML(cap CapacityDemandResults) string {
 	sb.WriteString("<div style='margin: 15px; text-align: justify;'>")
 	writeRecommendationHTML(&sb, rec)
 	sb.WriteString(divClose)
-	writeCollapsible(&sb, "🔍 Detailed Capacity Demand Analysis", func() { writeDetailedHTML(&sb, cap) })
+	writeCollapsible(&sb, "🔍 Detailed Capacity Demand Analysis", func() { writeDetailedHTML(&sb, cd) })
 	writeCollapsible(&sb, "ℹ️ About the Capacity Demand Calculation Methodology", writeMethodologyHTML(&sb))
 	sb.WriteString(divClose)
 	return sb.String()
@@ -383,8 +383,8 @@ func optionalWorkers(data *PercentileResult) *int {
 	return &w
 }
 
-func computeRecommendation(cap CapacityDemandResults) *capacityRecommendation {
-	allBuckets, weekday := findPercentileAnalyses(cap.PercentileAnalyses)
+func computeRecommendation(cd CapacityDemandResults) *capacityRecommendation {
+	allBuckets, weekday := findPercentileAnalyses(cd.PercentileAnalyses)
 	allData, allCount := extractAtPercentile(allBuckets, recommendationPercentile)
 	weekData, weekCount := extractAtPercentile(weekday, recommendationPercentile)
 
@@ -406,9 +406,9 @@ func computeRecommendation(cap CapacityDemandResults) *capacityRecommendation {
 		source:            source,
 		bucketCount:       count,
 		data:              *recData,
-		bucketLengthMin:   cap.BucketLengthMinutes,
-		windowStart:       cap.AnalysisWindowStart,
-		windowEnd:         cap.AnalysisWindowEnd,
+		bucketLengthMin:   cd.BucketLengthMinutes,
+		windowStart:       cd.AnalysisWindowStart,
+		windowEnd:         cd.AnalysisWindowEnd,
 		allBucketsWorkers: optionalWorkers(allData),
 		weekdayWorkers:    optionalWorkers(weekData),
 	}
@@ -472,8 +472,8 @@ func workerSuffix(n int) string {
 
 // --- detailed analysis table ---
 
-func writeDetailedHTML(sb *strings.Builder, cap CapacityDemandResults) {
-	allBuckets, weekday := findPercentileAnalyses(cap.PercentileAnalyses)
+func writeDetailedHTML(sb *strings.Builder, cd CapacityDemandResults) {
+	allBuckets, weekday := findPercentileAnalyses(cd.PercentileAnalyses)
 	if allBuckets == nil && weekday == nil {
 		sb.WriteString("<p>No percentile analysis data available.</p>")
 		return
@@ -564,16 +564,16 @@ func writeDetailedTableRow(sb *strings.Builder, p float64, allBuckets, weekday *
 }
 
 func maxPercentileUtil(p float64, analyses ...*PercentileAnalysis) float64 {
-	max := 0.0
+	best := 0.0
 	for _, a := range analyses {
 		if a == nil {
 			continue
 		}
-		if pr, ok := a.Percentiles[p]; ok && pr.SingleWorkerUtilization > max {
-			max = pr.SingleWorkerUtilization
+		if pr, ok := a.Percentiles[p]; ok && pr.SingleWorkerUtilization > best {
+			best = pr.SingleWorkerUtilization
 		}
 	}
-	return max
+	return best
 }
 
 func writeAnalysisCells(sb *strings.Builder, a *PercentileAnalysis, p float64, hasBorder bool) {

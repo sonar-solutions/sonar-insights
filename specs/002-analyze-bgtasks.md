@@ -45,7 +45,7 @@ sonar-insights run bgtasks [flags]  # collect + analyze bgtasks only
 ```
 
 When invoked without a target subcommand, each command runs all known targets using their
-defaults. Shared flags (`--dir`, `--report-dir`, `--out-dir`, `--parallel`) remain on the
+defaults. Shared flags (`--data-dir`, `--report-dir`, `--parallel`) remain on the
 parent command. Per-target flags live only on the target subcommand.
 
 The existing `--report-name` flag is removed from `collect`, `analyze`, and `run` parent
@@ -61,7 +61,7 @@ override the output filename.
 |------|---------|-------------|
 | `--url` | (env: `SONAR_HOST_URL`, fallback: `https://sonarcloud.io`) | SonarQube base URL |
 | `--token` | (env: `SONAR_TOKEN`) | SonarQube authentication token |
-| `--out-dir` | `./sonar-data/` | Directory to write collected data |
+| `--data-dir` | `./sonar-data/` | Directory to write collected data |
 | `--parallel` | `5` | Number of pages to fetch concurrently |
 
 **`collect bgtasks` (subcommand)**
@@ -72,7 +72,7 @@ No flags specific to this target. All configuration is inherited from the parent
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--dir` | `./sonar-data/` | Directory containing collected data |
+| `--data-dir` | `./sonar-data/` | Directory containing collected data |
 | `--report-dir` | `./sonar-reports/` | Directory where reports are written |
 
 **`analyze bgtasks` (subcommand)**

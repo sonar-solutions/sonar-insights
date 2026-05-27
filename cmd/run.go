@@ -20,7 +20,7 @@ var runBgtasksCmd = &cobra.Command{
 func init() {
 	runCmd.Flags().String("url", "", "SonarQube base URL (env: SONAR_HOST_URL, default: https://sonarcloud.io)")
 	runCmd.Flags().String("token", "", "SonarQube authentication token (env: SONAR_TOKEN)")
-	runCmd.Flags().String(flagOutDir, "./sonar-data/", "directory to write collected data and read for analysis")
+	runCmd.Flags().String(flagDataDir, "./sonar-data/", "directory to write collected data and read for analysis")
 	runCmd.Flags().Int("parallel", 5, "number of pages to fetch concurrently")
 	runCmd.Flags().String(flagReportDir, "./sonar-reports/", "directory where reports are written")
 
@@ -35,7 +35,7 @@ func init() {
 func runRunCmd(cmd *cobra.Command, _ []string) error {
 	url, _ := cmd.Flags().GetString("url")
 	token, _ := cmd.Flags().GetString("token")
-	outDir, _ := cmd.Flags().GetString(flagOutDir)
+	outDir, _ := cmd.Flags().GetString(flagDataDir)
 	parallel, _ := cmd.Flags().GetInt("parallel")
 	reportDir, _ := cmd.Flags().GetString(flagReportDir)
 	if err := runCollect(knownTargets(), url, token, outDir, parallel); err != nil {
@@ -48,7 +48,7 @@ func runRunBgtasksCmd(cmd *cobra.Command, _ []string) error {
 	parent := cmd.Parent()
 	url, _ := parent.Flags().GetString("url")
 	token, _ := parent.Flags().GetString("token")
-	outDir, _ := parent.Flags().GetString(flagOutDir)
+	outDir, _ := parent.Flags().GetString(flagDataDir)
 	parallel, _ := parent.Flags().GetInt("parallel")
 	reportDir, _ := parent.Flags().GetString(flagReportDir)
 	from, _ := cmd.Flags().GetString("from")

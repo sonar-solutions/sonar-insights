@@ -4,7 +4,7 @@ title: Replace `"no project key - error"` sentinel with a neutral placeholder
 author: code-review
 date: 2026-05-25
 draft-status: ready
-impl-status: not-started
+impl-status: complete
 prerequisites: []
 ---
 

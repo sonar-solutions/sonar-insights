@@ -12,10 +12,10 @@ const (
 	typeReport    = "REPORT"
 	typeIssueSync = "ISSUE_SYNC"
 	statusFailed  = "FAILED"
-	noProjectKey  = "no project key - error"
-	noType        = "no type - error"
-	noStatus      = "no status - error"
-	noSubmitter   = "no submitter - error"
+	noProjectKey  = "(no project key)"
+	noType        = "(no type)"
+	noStatus      = "(no status)"
+	noSubmitter   = "(no submitter)"
 )
 
 var timeThresholds = []struct {

@@ -4,7 +4,7 @@ title: `AnalyzeDateRange.LatestCompletion` falls back to `SubmittedAt`, deviatin
 author: code-review
 date: 2026-05-25
 draft-status: ready
-impl-status: not-started
+impl-status: in-progress
 prerequisites: []
 ---
 

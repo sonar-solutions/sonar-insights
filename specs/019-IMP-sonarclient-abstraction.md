@@ -3,7 +3,7 @@ spec: 019
 title: Introduce a `SonarClient` interface so Server and Cloud can diverge cleanly
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -51,24 +51,46 @@ Introduce a small interface in `internal/sonarqube`:
 ```go
 type Client interface {
     Product() Product
-    Version() string                       // empty for Cloud
+    Version() string // empty string for Cloud
 
-    // GetJSON issues a GET against path (relative to BaseURL), handles
-    // auth, status codes, error-body capture, and returns the raw body
-    // bytes on 2xx.
+    // GetJSON issues a GET against path (relative to BaseURL, e.g.
+    // "/api/ce/activity"), appends query params, handles auth headers,
+    // status-code checking with error-body capture, and returns the raw
+    // body bytes on 2xx.
     GetJSON(ctx context.Context, path string, query url.Values) ([]byte, error)
 }
 ```
 
-`HTTPClient` is the concrete `*http.Client`-backed implementation; the
-existing `SonarInstance` becomes its configuration. The interface is the
-seam that:
+The concrete implementation is named `sonarqube.RealClient` (not
+`HTTPClient` — that name is too close to `http.Client` from stdlib and
+causes confusion). It wraps the existing `SonarInstance` as configuration:
 
-- Collectors can be tested with hand-rolled fakes.
-- Cloud and Server subclient implementations can later override what they
-  need (different base path, different auth, different pagination).
-- Error handling (body capture from [[011-BUG-...]]) lives in one place
-  rather than per-collector.
+```go
+type RealClient struct {
+    instance SonarInstance
+}
+
+func NewRealClient(inst SonarInstance) *RealClient { return &RealClient{instance: inst} }
+
+func (c *RealClient) GetJSON(ctx context.Context, path string, query url.Values) ([]byte, error) {
+    // builds URL from c.instance.BaseURL + path + query,
+    // sets auth header via c.instance.AuthorizationHeader(),
+    // reads body on error via ErrorBodySnippet (from [[011-BUG-...]]),
+    // returns body bytes on 200.
+}
+```
+
+`SonarInstance` is kept as-is; it becomes the configuration struct passed
+to `NewRealClient`. Existing callers that construct `SonarInstance` do not
+change — they wrap it in `NewRealClient` before passing it to collectors.
+
+**Retry is out of scope** for this spec. The validation section below does
+not cover retry behavior.
+
+The interface seam allows:
+- Collectors to be tested with hand-rolled fakes implementing `Client`.
+- Error handling (body capture from [[011-BUG-...]]) in one place.
+- Future Cloud/Server divergence by implementing separate `Client` types.
 
 ## Concrete impact
 
@@ -81,10 +103,13 @@ seam that:
 
 ## Validation
 
-- Existing collector tests can use a simple fake implementing `Client`
-  instead of `httptest.Server` — verify they still cover the same cases.
-- New tests for the concrete `HTTPClient` cover URL building, auth header,
-  status-code handling, error-body capture, and retry.
+- Existing collector tests can replace `httptest.Server` with a simple fake
+  implementing `Client` — verify they still cover the same cases.
+- New tests for `RealClient.GetJSON` cover:
+  - URL construction from base URL + path + query params
+  - Auth header is set correctly
+  - 200 → returns body bytes
+  - 401/403/500 → error includes body snippet (per [[011-BUG-...]])
 
 ## Prerequisites
 

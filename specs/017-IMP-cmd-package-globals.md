@@ -3,7 +3,7 @@ spec: 017
 title: Remove package-global state from `cmd` (logger, timing, startTime)
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -50,6 +50,12 @@ Symptoms today:
 Group execution context into a struct constructed once per command run:
 
 ```go
+// contextKey is an unexported type for context keys in the cmd package,
+// preventing collisions with keys from other packages.
+type contextKey struct{}
+
+var ctxKeyRuntime = contextKey{}
+
 type runtime struct {
     logger    *slog.Logger
     startTime time.Time
@@ -59,11 +65,29 @@ type runtime struct {
 func newRuntime(verbose, timing bool) *runtime { ... }
 ```
 
-`PersistentPreRun` constructs a `*runtime` and stashes it on the cobra
-context (`cmd.SetContext(context.WithValue(cmd.Context(), ctxKeyRuntime, rt))`).
-Each `RunE` reads it back. Internal packages (`collector`, `analyzer`)
-already accept `*slog.Logger` parameters — keep that contract; `cmd` is the
-only layer that needs to construct and pass it.
+`PersistentPreRun` replaces the current logger/startTime initialisation and
+stashes the result on the cobra context:
+
+```go
+rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+    rt := newRuntime(verbose, timing)
+    cmd.SetContext(context.WithValue(cmd.Context(), ctxKeyRuntime, rt))
+    startTime = rt.startTime // keep startTime for PersistentPostRun timing; remove once timing moves into rt
+}
+```
+
+Each `RunE` reads it back with a checked assertion:
+
+```go
+rt, ok := cmd.Context().Value(ctxKeyRuntime).(*runtime)
+if !ok {
+    return fmt.Errorf("internal error: runtime not initialised")
+}
+```
+
+Internal packages (`collector`, `analyzer`) already accept `*slog.Logger`
+parameters — keep that contract; `cmd` is the only layer that constructs
+and passes it.
 
 If [[015-IMP-context-cancellation]] is adopted, the runtime struct can
 live on the context naturally alongside the cancellation context.
@@ -71,9 +95,13 @@ live on the context naturally alongside the cancellation context.
 ## Validation
 
 - The existing tests should continue passing with no behavior change.
-- A new test that constructs two `runtime` instances concurrently and runs
-  `runCollect` against two different test servers in parallel — no
-  cross-contamination of logger output.
+- Write tests in the `cmd` package (internal `_test.go` files, not
+  `cmd_test.go` with `package cmd_test`), since `runtime` is unexported.
+- A new internal test constructs two separate cobra command trees (call a
+  `newRootCmd()` constructor in each test rather than sharing the package-
+  level `rootCmd`), runs each against a different test HTTP server
+  concurrently, and asserts that the loggers and start times do not bleed
+  across runs.
 
 ## Prerequisites
 

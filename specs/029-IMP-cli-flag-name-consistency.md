@@ -3,7 +3,7 @@ spec: 029
 title: Reconcile `--out-dir` vs `--dir` and other CLI flag-name inconsistencies
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -51,23 +51,21 @@ Other small inconsistencies:
 
 ## Proposed fix
 
-Pick one of two consistent schemes:
+Use `--data-dir` on all three commands:
 
-**Scheme A — single name `--data-dir`** (or `--dir`):
+| Command   | New flag       | Old flag    |
+|-----------|----------------|-------------|
+| `collect` | `--data-dir`   | `--out-dir` |
+| `analyze` | `--data-dir`   | `--dir`     |
+| `run`     | `--data-dir`   | `--out-dir` |
 
-- `collect --data-dir` (writes)
-- `analyze --data-dir` (reads)
-- `run --data-dir`
+The command name already encodes the direction (`collect` writes,
+`analyze` reads); the flag just needs to say "where the data lives".
+Having one name across all three commands makes the pipeline obvious —
+the same path value works for collect, analyze, and run.
 
-Pros: emphasizes the shared concept. Cons: requires updating spec 001 and
-breaking the current `--out-dir`.
-
-**Scheme B — keep two names, document the relationship.**
-
-- `collect --out-dir` and `analyze --in-dir` (clearer than `--dir`).
-
-Either way, agree once, update the specs, and rename in code.
-
+Also update specs 001 and 002 to use `--data-dir` in their flag tables.
+ho
 ## Validation
 
 - The existing tests use the current names — updating them is mechanical.

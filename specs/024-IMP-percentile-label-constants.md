@@ -3,7 +3,7 @@ spec: 024
 title: Replace substring label matching in capacity analysis with named constants
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -56,7 +56,8 @@ recommendation degrades to "no data available".
 
 ## Proposed fix
 
-Use a typed enum-like key alongside the label:
+Use a typed enum-like key alongside the label. `PercentileSlice` and its
+constants are exported (uppercase) since `PercentileAnalysis` is exported:
 
 ```go
 // capacity.go
@@ -76,6 +77,44 @@ type PercentileAnalysis struct {
 }
 ```
 
+Update `calcPercentiles` to accept the slice identifier so it can set the
+field when building the result:
+
+```go
+// Before:
+func calcPercentiles(results *CapacityDemandResults, filter func(BucketKey) bool, label string)
+
+// After:
+func calcPercentiles(results *CapacityDemandResults, slice PercentileSlice, filter func(BucketKey) bool, label string)
+```
+
+Update both call sites in `CalculateCapacityDemand`:
+
+```go
+calcPercentiles(&results, SliceAllBuckets, func(k BucketKey) bool { return true }, "All Buckets (24/7 Coverage)")
+calcPercentiles(&results, SliceWeekday, func(k BucketKey) bool { ... }, "Weekday Buckets Only (Monday-Friday)")
+```
+
+Inside `calcPercentiles`, set the Slice field when appending:
+
+```go
+results.PercentileAnalyses = append(results.PercentileAnalyses, PercentileAnalysis{
+    Slice:       slice,
+    Label:       label,
+    BucketCount: len(demands),
+    Percentiles: percentiles,
+})
+```
+
+Update the `makeAnalysis()` test helper in `report_test.go` to accept a
+`PercentileSlice` parameter so existing test calls compile:
+
+```go
+func makeAnalysis(slice PercentileSlice, label string, ...) PercentileAnalysis {
+    return PercentileAnalysis{Slice: slice, Label: label, ...}
+}
+```
+
 Then `findPercentileAnalyses` becomes:
 
 ```go
@@ -86,9 +125,6 @@ for i := range analyses {
     }
 }
 ```
-
-A switch on a known enum is exhaustive in style — adding a new slice
-forces a compiler-helped audit of every consumer.
 
 ## Validation
 

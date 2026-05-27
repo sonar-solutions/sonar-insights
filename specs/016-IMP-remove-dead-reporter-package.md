@@ -3,7 +3,7 @@ spec: 016
 title: Remove dead `internal/reporter` package
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---

@@ -3,7 +3,7 @@ spec: 014
 title: Introduce a target registry to make adding a new collection target a one-file change
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -22,7 +22,7 @@ The string `"bgtasks"` appears throughout the CLI layer:
 - `internal/analyzer/bgtasks.go` — the actual analyzer
 
 The product roadmap mentions adding more targets (and likely splitting
-Server vs. Cloud variants — see [[022-IMP-sonarclient-abstraction]] and
+Server vs. Cloud variants — see [[019-IMP-sonarclient-abstraction]] and
 [[007-BUG-cloud-detected-but-bgtasks-unsupported]]). Each new target
 currently means editing at minimum three files in `cmd/`, plus the
 collector and analyzer packages — and remembering to update every
@@ -42,16 +42,37 @@ omission.
 
 ## Proposed approach
 
-Introduce a `Target` interface and a registry inside a new internal
-package, e.g. `internal/targets`:
+Introduce a `Target` interface and a registry inside a new package
+`internal/targets`. Define shared option types there too:
 
 ```go
 package targets
 
 import (
+    "context"
+    "log/slog"
+    "time"
+
+    "github.com/sonar-solutions/sonar-insights/internal/sonarqube"
     "github.com/spf13/cobra"
-    ...
 )
+
+// CollectOptions holds the parameters passed from cmd to a target's Collect.
+type CollectOptions struct {
+    OutDir   string
+    Parallel int
+    Logger   *slog.Logger
+}
+
+// AnalyzeOptions holds the parameters passed from cmd to a target's Analyze.
+type AnalyzeOptions struct {
+    DataDir    string
+    ReportDir  string
+    ReportName string
+    From       *time.Time
+    To         *time.Time
+    Logger     *slog.Logger
+}
 
 type Target interface {
     Name() string                              // e.g. "bgtasks"
@@ -60,38 +81,70 @@ type Target interface {
     AnalyzeFlags(*cobra.Command)
     Collect(ctx context.Context, inst sonarqube.SonarInstance, opts CollectOptions) error
     Analyze(ctx context.Context, opts AnalyzeOptions) error
-    DefaultReportName() string
+    DefaultReportName() string                 // used as the default for --report-name flag
 }
 
-var registry = map[string]Target{}
+var registry []Target
 
-func Register(t Target) { registry[t.Name()] = t }
-func All() []Target     { ... }
+func Register(t Target)              { registry = append(registry, t) }
+func All() []Target                  { return registry }
 func Get(name string) (Target, bool) { ... }
 ```
 
-A `bgtasks` package then registers itself in `init()`:
+Create `internal/targets/bgtasks/bgtasks.go` (a new package) that
+implements `Target` for the existing bgtasks collector/analyzer and
+registers itself:
 
 ```go
-package bgtargets
+package bgtasks
+
+import "github.com/sonar-solutions/sonar-insights/internal/targets"
 
 func init() {
     targets.Register(&Bgtasks{})
 }
+
+type Bgtasks struct{}
+
+func (b *Bgtasks) Name() string { return "bgtasks" }
+func (b *Bgtasks) DefaultReportName() string { return "report-bgtasks" }
+func (b *Bgtasks) SupportsProduct(p sonarqube.Product) bool { return p == sonarqube.Server }
+// ... CollectFlags, AnalyzeFlags, Collect, Analyze delegate to existing packages
 ```
 
-`cmd/collect.go` becomes:
+**Triggering `init()`:** add a blank import in `cmd/root.go` (or a
+dedicated `cmd/targets.go` file) so the registration runs at startup:
 
 ```go
+import _ "github.com/sonar-solutions/sonar-insights/internal/targets/bgtasks"
+```
+
+**`cmd/collect.go` parent command** — preserve the existing behaviour
+where `sonar-insights collect` (with no subcommand) runs all targets:
+
+```go
+// Parent RunE — iterate all registered targets
+collectCmd.RunE = func(cmd *cobra.Command, args []string) error {
+    for _, t := range targets.All() {
+        if err := runCollectTarget(cmd.Context(), t, ...); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// Subcommands — one per target
 for _, t := range targets.All() {
-    sub := &cobra.Command{Use: t.Name(), RunE: func(...) error { ... }}
+    t := t
+    sub := &cobra.Command{Use: t.Name(), RunE: func(cmd *cobra.Command, _ []string) error {
+        return runCollectTarget(cmd.Context(), t, ...)
+    }}
     t.CollectFlags(sub)
     collectCmd.AddCommand(sub)
 }
 ```
 
-The same loop in `analyze` and `run`. Adding a new target is now a single
-new package with an `init()` import.
+Apply the same pattern in `cmd/analyze.go` and `cmd/run.go`.
 
 ## Concrete impact
 

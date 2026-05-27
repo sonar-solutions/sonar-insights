@@ -3,7 +3,7 @@ spec: 020
 title: Replace `"no project key - error"` sentinel with a neutral placeholder
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -65,8 +65,12 @@ diagnostics section of the report, not mixed into the data.
 
 ## Validation
 
-- The golden-master tests should be re-checked: any assertion that mentions
-  `"no project key - error"` must be updated together with the constant.
+- The golden-master tests in `metrics_test.go` check only map sizes (counts
+  of distinct types, statuses, submitters) — they do not assert on the
+  literal sentinel strings. No test updates are required. Only the four
+  constants in `metrics.go` change.
+- Confirm with `grep -r "no project key" .` that no other file references
+  the old strings.
 
 ## Prerequisites
 

@@ -3,7 +3,7 @@ spec: 028
 title: Add CLI-level integration tests that exercise Cobra wiring end-to-end
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -39,57 +39,84 @@ subcommand should produce X behaviour".
 
 ## Proposed approach
 
-Cobra is designed to be test-driven. Use `rootCmd.SetArgs([]string{...})` +
-`rootCmd.SetOut(io.Discard)` + `rootCmd.Execute()` from a test harness, and
-substitute the action functions with test doubles (or use a fake collector
-/ fake analyzer through dependency injection).
-
-Sketch:
+**DI seam — function variables.** Replace the hardcoded
+`analyzer.AnalyzeBgTasks(...)` calls in `cmd/analyze.go` and `cmd/run.go`
+with package-level function variables that tests can override:
 
 ```go
-func TestAnalyze_DefaultsToAllTargets(t *testing.T) {
-    invoked := map[string]int{}
-    withFakeAnalyzers(t, map[string]func(...) error{
-        "bgtasks": func(...) error { invoked["bgtasks"]++; return nil },
-        "metrics": func(...) error { invoked["metrics"]++; return nil },
-    })
+// cmd/analyze.go
+var analyzeBgtasksFn = analyzer.AnalyzeBgTasks // production default
 
-    rootCmd.SetArgs([]string{"analyze"})
-    if err := rootCmd.Execute(); err != nil {
-        t.Fatalf("execute: %v", err)
-    }
-    if invoked["bgtasks"] != 1 || invoked["metrics"] != 1 {
-        t.Errorf("expected both targets invoked once, got %v", invoked)
-    }
-}
-
-func TestAnalyzeBgtasks_PassesDateFilters(t *testing.T) {
-    var gotFrom, gotTo string
-    withFakeAnalyzer(t, "bgtasks", func(opts Options) error {
-        gotFrom, gotTo = opts.From.String(), opts.To.String()
-        return nil
-    })
-
-    rootCmd.SetArgs([]string{"analyze", "bgtasks",
-        "--from", "2026-01-01", "--to", "2026-03-31"})
-    if err := rootCmd.Execute(); err != nil { ... }
-    // assert gotFrom / gotTo
+func runAnalyzeBgtasksCmd(...) error {
+    ...
+    return analyzeBgtasksFn(ctx, opts)
 }
 ```
 
-This depends on having a clean dependency-injection seam, which is why
-[[014-IMP-target-registry]] / [[019-IMP-sonarclient-abstraction]] are
-prerequisites in spirit (you need a way to substitute the real handler).
+Tests override the variable with a fake and restore the original via
+`t.Cleanup`:
+
+```go
+func withFakeAnalyzer(t *testing.T, fn func(context.Context, analyzer.Options) error) {
+    t.Helper()
+    orig := analyzeBgtasksFn
+    analyzeBgtasksFn = fn
+    t.Cleanup(func() { analyzeBgtasksFn = orig })
+}
+```
+
+**Test isolation — fresh command tree per test.** The package-level
+`rootCmd` is mutable (cobra stores flag state). Tests must NOT share it.
+Extract a constructor:
+
+```go
+// cmd/root.go
+func newRootCmd() *cobra.Command { ... } // creates a fresh tree
+
+var rootCmd = newRootCmd() // production singleton
+
+func Execute() error { return rootCmd.ExecuteContext(...) }
+```
+
+Tests call `newRootCmd()` directly and call `.Execute()` on the fresh
+instance:
+
+```go
+func TestAnalyzeBgtasks_PassesDateFilters(t *testing.T) {
+    var gotOpts analyzer.Options
+    withFakeAnalyzer(t, func(_ context.Context, opts analyzer.Options) error {
+        gotOpts = opts
+        return nil
+    })
+
+    cmd := newRootCmd()
+    cmd.SetArgs([]string{"analyze", "bgtasks", "--from", "2026-01-01", "--to", "2026-03-31"})
+    if err := cmd.Execute(); err != nil {
+        t.Fatalf("execute: %v", err)
+    }
+    if gotOpts.From == nil || gotOpts.From.Format("2006-01-02") != "2026-01-01" {
+        t.Errorf("From = %v, want 2026-01-01", gotOpts.From)
+    }
+}
+```
+
+**Minimum viable test list for the first pass:**
+
+1. `TestAnalyzeBgtasks_PassesDateFilters` — `--from`/`--to` reach the handler correctly.
+2. `TestAnalyzeBgtasks_DefaultReportName` — default `--report-name` is `"report-bgtasks"`.
+3. `TestAnalyzeCmd_RunsAllTargets` — `analyze` (no subcommand) invokes all registered targets.
+4. `TestCollectBgtasks_MissingURL` — missing `--url` returns a non-zero exit code with a message.
+5. `TestSonarToken_EnvFallback` — `SONAR_TOKEN` env var is read when `--token` flag is absent.
 
 ## Validation
 
 - Adding the failing test for [[003-BUG-analyze-parent-hardcodes-target]]
-  is a useful first case — write the test, watch it fail, then ship the
-  bug fix.
+  is the recommended first case — write the test, watch it fail, ship the fix.
 
 ## Prerequisites
 
-Easier after [[014-IMP-target-registry]] + [[017-IMP-cmd-package-globals]]
-because both make the cmd package testable. But the first test for
-[[003-BUG-...]] is achievable today with a small refactor that makes the
-analyzer dependency injectable.
+Requires [[027-IMP-runanalyze-options-struct]] for the `analyzer.Options`
+type used in the fake function signature. Easier after
+[[014-IMP-target-registry]] + [[017-IMP-cmd-package-globals]], but tests 1
+and 4 above are achievable with only the function-variable seam and the
+`newRootCmd()` constructor.

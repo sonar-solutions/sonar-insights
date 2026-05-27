@@ -3,7 +3,7 @@ spec: 023
 title: Move 180-file golden-master dataset out of the source tree
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -46,30 +46,35 @@ keeping. The cost:
 Two options, in order of effort:
 
 **Option A — keep in repo, mark as integration tests.** Wrap each
-golden-master test in `testing.Short()`:
+golden-master test in `testing.Short()`. Implement Option A. Apply the guard
+to all six golden-master test functions:
+
+| File | Function |
+|---|---|
+| `internal/analyzer/bgtasks/loader_test.go` | `TestLoad_GoldenMasterTaskCount` |
+| `internal/analyzer/bgtasks/metrics_test.go` | `TestAnalyzeDateRange_GoldenMaster` |
+| `internal/analyzer/bgtasks/metrics_test.go` | `TestAnalyzeOverall_GoldenMaster` |
+| `internal/analyzer/bgtasks/metrics_test.go` | `TestAnalyzeProjectAnalysis_GoldenMaster` |
+| `internal/analyzer/bgtasks/metrics_test.go` | `TestAnalyzeCharts_GoldenMaster` |
+| `internal/analyzer/bgtasks/capacity_test.go` | `TestCalculateCapacityDemand_GoldenMaster` |
 
 ```go
 func TestAnalyzeOverall_GoldenMaster(t *testing.T) {
     if testing.Short() {
-        t.Skip("golden master test; run without -short")
+        t.Skip("golden master test: skipped with -short")
     }
     ...
 }
 ```
 
-CI runs the full suite; local `go test -short ./...` is fast. Zero changes
-to repo layout.
+CI runs `go test ./...` (full suite); developers run `go test -short ./...`
+for a fast local loop. Zero changes to repo layout.
 
 **Option B — extract.** Move `test-data/` to a sibling repo or a
 git-submodule. Tests fetch on demand or skip if missing.
 
 Option A is the right first step; Option B can come later if the data
 grows.
-
-There's also a related (separate) question: `sonar-data/` and
-`sonar-reports/` are listed in `.gitignore` (good) yet `sonar-data/`
-and `sonar-reports/` directories with content appear in `git ls-tree`.
-Verify and either commit-clean or extend the ignore.
 
 ## Validation
 

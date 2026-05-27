@@ -3,7 +3,7 @@ spec: 015
 title: Plumb `context.Context` through CLI, collector, and HTTP calls
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -45,11 +45,15 @@ Practical consequences:
 Standard Go pattern: pass `ctx` as the first parameter on every I/O-touching
 function.
 
-1. In `cmd/`, capture `ctx := cmd.Context()` at the top of each `RunE`. In
-   `cmd/root.go`, wire signal handling so that SIGINT cancels the root
-   context:
+1. In `cmd/root.go`, import `"os/signal"` and wire signal handling so that
+   SIGINT cancels the root context:
 
    ```go
+   import (
+       "os/signal"
+       "syscall"
+   )
+
    func Execute() error {
        ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
        defer stop()
@@ -57,11 +61,30 @@ function.
    }
    ```
 
-2. Add `ctx context.Context` to `CollectBgTasks`, `Load`, `AnalyzeBgTasks`,
-   `Detect`, `fetchPage`. Each constructs `http.NewRequestWithContext(ctx, ...)`.
+   In each `RunE`, capture: `ctx := cmd.Context()`.
 
-3. In parallel sections, `select { case <-ctx.Done(): return ctx.Err(); ... }`
-   to fail fast.
+2. Add `ctx context.Context` as the first parameter to:
+   - `CollectBgTasks` in `internal/collector/bgtasks.go`
+   - `fetchPage` in `internal/collector/bgtasks.go`
+   - `AnalyzeBgTasks` in `internal/analyzer/bgtasks.go`
+   - `Load` in `internal/analyzer/bgtasks/loader.go`
+   - `Detect` in `internal/sonarqube/detect.go`
+
+   Each HTTP call must use `http.NewRequestWithContext(ctx, ...)` instead of
+   `http.NewRequest(...)`.
+
+3. The two parallel sections that need `ctx.Done()` select guards are:
+   - `fetchAndWriteRemainingPages` goroutines in `internal/collector/bgtasks.go`
+   - `loadFilesParallel` goroutines in `internal/analyzer/bgtasks/loader.go`
+
+   In each, check `ctx.Done()` before starting work:
+   ```go
+   select {
+   case <-ctx.Done():
+       return ctx.Err()
+   default:
+   }
+   ```
 
 ## Concrete impact
 
@@ -72,10 +95,12 @@ function.
 
 ## Validation
 
-- A test that starts a slow HTTP server, kicks off `CollectBgTasks` in a
-  goroutine with a cancellable context, cancels mid-flight, and asserts:
-  - The function returns within ~100ms.
-  - The returned error is `context.Canceled` (or wraps it).
+- A test that starts a slow HTTP server (each response takes 500ms), kicks
+  off `CollectBgTasks` in a goroutine with a cancellable context, cancels
+  after 50ms, and asserts:
+  - The function returns within 1 second (well within the server's response
+    time, proving cancellation worked).
+  - The returned error wraps `context.Canceled`.
 
 ## Prerequisites
 

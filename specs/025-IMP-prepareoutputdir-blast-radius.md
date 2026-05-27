@@ -3,7 +3,7 @@ spec: 025
 title: Narrow `prepareOutputDir`'s blast radius — delete per-target, not whole `--out-dir`
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -67,9 +67,11 @@ Two coordinated changes:
 
 1. **Delete per-target.** Each target is responsible for its own subdir
    (`<out-dir>/bgtasks/`, etc.) and clears only that subdir. The shared
-   `<out-dir>` exists if missing but is not recursively wiped. Metadata
-   continues to be written per-collect-run (and arguably should record the
-   per-target collection time alongside the global timestamp).
+   `<out-dir>` exists if missing but is not recursively wiped.
+   `collect-metadata.json` is always overwritten with the current run's
+   connection details (URL, product, version, timestamp). It records no
+   target list — which targets have been collected is inferred from which
+   subdirectories exist.
 
 2. **Strengthen the dangerous-path check.** Resolve to absolute path,
    reject:

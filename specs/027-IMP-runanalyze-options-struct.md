@@ -3,7 +3,7 @@ spec: 027
 title: Replace positional-argument soup in `runAnalyze` / `AnalyzeBgTasks` with options structs
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -48,10 +48,14 @@ Concerns:
 
 ## Proposed fix
 
-Define a per-target options struct passed from `cmd` to the analyzer:
+Define a per-target options struct passed from `cmd` to the analyzer. The
+struct lives in `internal/analyzer/bgtasks.go`. `From` and `To` stay as
+`*time.Time` (nil = no filter, matching the current convention). If
+`Logger` is nil, fall back to `slog.Default()` at the top of
+`AnalyzeBgTasks`.
 
 ```go
-// analyzer/bgtasks.go
+// internal/analyzer/bgtasks.go
 type Options struct {
     DataDir    string
     ReportDir  string
@@ -61,23 +65,31 @@ type Options struct {
     Logger     *slog.Logger
 }
 
-func AnalyzeBgTasks(ctx context.Context, opts Options) error { ... }
+func AnalyzeBgTasks(ctx context.Context, opts Options) error {
+    if opts.Logger == nil {
+        opts.Logger = slog.Default()
+    }
+    ...
+}
 ```
 
 `cmd/analyze.go` builds the struct from flags. The `analyzeOption`
-functional-options pattern can go away — there's no caller that wants to
-partially configure analysis from outside `cmd`.
+functional-options pattern can go away — `withReportName` is the only
+option in use and it can be folded directly into the struct.
 
-If [[014-IMP-target-registry]] lands, each target package exposes its own
-`Options` type and `Analyze(ctx, opts)` method; the registry plumbs flags
-into it.
+The `ctx` parameter is for cancellation support per [[015-IMP-context-cancellation]].
+Pass it through to `bgtasks.Load(ctx, ...)` once that function is updated.
+
+If [[014-IMP-target-registry]] lands, `Options` here becomes
+`targets.AnalyzeOptions`; the bgtasks `Analyze` method accepts that shared
+type instead.
 
 ## Validation
 
 - All existing tests rebuilt against the new signature.
-- A new test that constructs `Options` with only some fields set
-  (zero-value `Logger`, zero-value `From`/`To`) and confirms the
-  analyzer handles defaults sensibly.
+- A new test that constructs `Options` with nil `Logger`, nil `From`/`To`,
+  and a valid `DataDir` pointing at fixture data — confirms no panic and
+  correct behavior (nil Logger → slog.Default(), nil From/To → no date filter).
 
 ## Prerequisites
 

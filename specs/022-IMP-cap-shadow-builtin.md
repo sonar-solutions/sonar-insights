@@ -3,7 +3,7 @@ spec: 022
 title: Rename variable `cap` so it doesn't shadow the `cap` builtin
 author: code-review
 date: 2026-05-25
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: []
 ---
@@ -49,8 +49,15 @@ catches it.
 
 ## Proposed fix
 
-Rename to `cd` (matches existing `dr` for `DateRange`) or to `capacity` if
-verbosity is preferred:
+Rename to `cd` (consistent with the existing `dr` abbreviation for `DateRange`).
+Apply `replace_all` to the following files:
+
+- `internal/analyzer/bgtasks.go` — local variable `cap`
+- `internal/analyzer/bgtasks/report.go` — parameter name in four functions:
+  `buildCapacitySection`, `buildCapacityHTML`, `computeRecommendation`,
+  `writeDetailedHTML`
+- `internal/analyzer/bgtasks/report_test.go` — any local variables named `cap`
+- `internal/analyzer/bgtasks/capacity_test.go` — any local variables named `cap`
 
 ```go
 cd := bgtasks.CalculateCapacityDemand(...)
@@ -62,12 +69,19 @@ CapacityDemand: cd,
 func buildCapacitySection(cd CapacityDemandResults) *rptgen.Section { ... }
 ```
 
-`replace_all` on each file does it mechanically.
-
 ## Validation
 
 - `go build ./...` and `go test ./...` continue to pass.
-- Add `predeclared` to `.golangci.yml` so this regression can't slip back in.
+- Create `.golangci.yml` if it does not exist, and enable the `predeclared`
+  linter so this regression cannot slip back in:
+
+```yaml
+linters:
+  enable:
+    - predeclared
+```
+
+Then confirm `golangci-lint run` passes.
 
 ## Prerequisites
 

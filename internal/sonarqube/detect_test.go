@@ -85,3 +85,59 @@ func TestDetect_TrimsTrailingSlash(t *testing.T) {
 		t.Errorf("expected trailing slash stripped, got %q", inst.BaseURL)
 	}
 }
+
+func TestTruncateStr(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		max   int
+		want  string
+	}{
+		{name: "short string unchanged", input: "hello", max: 10, want: "hello"},
+		{name: "exact length unchanged", input: "hello", max: 5, want: "hello"},
+		{name: "ascii truncated", input: "hello world", max: 5, want: "hello…"},
+		{name: "multi-byte chars truncated at rune boundary", input: "café au lait", max: 4, want: "café…"},
+		{name: "truncation does not split multi-byte char", input: "日本語テスト", max: 3, want: "日本語…"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := truncateStr(tc.input, tc.max)
+			if got != tc.want {
+				t.Errorf("truncateStr(%q, %d) = %q, want %q", tc.input, tc.max, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDetect_VersionValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "html body rejected", body: "</html>", wantErr: true},
+		{name: "single integer rejected", body: "10", wantErr: true},
+		{name: "empty body rejected", body: "", wantErr: true},
+		{name: "whitespace-only rejected", body: "   ", wantErr: true},
+		{name: "four-part version accepted", body: "10.8.0.91563", wantErr: false},
+		{name: "year-based four-part version accepted", body: "2026.1.0.119033", wantErr: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+
+			_, err := Detect(srv.URL, "tok", NewHTTPClient())
+			if tc.wantErr && err == nil {
+				t.Errorf("expected error for body %q, got nil", tc.body)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("expected no error for body %q, got: %v", tc.body, err)
+			}
+		})
+	}
+}

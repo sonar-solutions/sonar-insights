@@ -118,14 +118,19 @@ func AnalyzeDateRange(tasks []BgTask) DateRange {
 		return DateRange{}
 	}
 	earliest := tasks[0].SubmittedAt
-	latest := executedOrSubmitted(tasks[0])
+	var latest time.Time
+	if !tasks[0].ExecutedAt.IsZero() {
+		latest = tasks[0].ExecutedAt.UTC()
+	}
 	latestSubmission := tasks[0].SubmittedAt
 	for _, t := range tasks[1:] {
 		if t.SubmittedAt.Before(earliest) {
 			earliest = t.SubmittedAt
 		}
-		if exec := executedOrSubmitted(t); exec.After(latest) {
-			latest = exec
+		if !t.ExecutedAt.IsZero() {
+			if executed := t.ExecutedAt.UTC(); executed.After(latest) {
+				latest = executed
+			}
 		}
 		if t.SubmittedAt.After(latestSubmission) {
 			latestSubmission = t.SubmittedAt
@@ -137,13 +142,6 @@ func AnalyzeDateRange(tasks []BgTask) DateRange {
 		LatestCompletion:   latest,
 		DateRangeInDays:    days,
 	}
-}
-
-func executedOrSubmitted(t BgTask) time.Time {
-	if t.ExecutedAt.IsZero() {
-		return t.SubmittedAt
-	}
-	return t.ExecutedAt
 }
 
 // AnalyzeOverall computes aggregate metrics across all task types.

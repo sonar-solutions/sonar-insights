@@ -50,11 +50,22 @@ func TestAnalyzeDateRange_ZeroExecutedAt(t *testing.T) {
 	submitted := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 	tasks := []BgTask{{SubmittedAt: submitted}} // ExecutedAt is zero
 	dr := AnalyzeDateRange(tasks)
-	if dr.LatestCompletion.IsZero() {
-		t.Errorf("LatestCompletion should not be zero when ExecutedAt is missing")
+	if !dr.LatestCompletion.IsZero() {
+		t.Errorf("LatestCompletion = %v, want zero when no task has ExecutedAt", dr.LatestCompletion)
 	}
-	if !dr.LatestCompletion.Equal(submitted) {
-		t.Errorf("LatestCompletion=%v, want %v (fallback to SubmittedAt)", dr.LatestCompletion, submitted)
+}
+
+func TestAnalyzeDateRange_MixedDataset(t *testing.T) {
+	day := func(n int) time.Time {
+		return time.Date(2026, 1, n, 0, 0, 0, 0, time.UTC)
+	}
+	tasks := []BgTask{
+		{SubmittedAt: day(1), ExecutedAt: day(5)},
+		{SubmittedAt: day(10), ExecutedAt: time.Time{}},
+	}
+	dr := AnalyzeDateRange(tasks)
+	if !dr.LatestCompletion.Equal(day(5)) {
+		t.Errorf("LatestCompletion = %v, want day 5", dr.LatestCompletion)
 	}
 }
 

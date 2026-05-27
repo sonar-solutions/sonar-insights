@@ -61,8 +61,8 @@ func validateReportName(name string) error {
 	if strings.ContainsAny(name, `/\`) {
 		return fmt.Errorf("--report-name must not contain path separators: %q", name)
 	}
-	if name == "." || name == ".." || strings.HasPrefix(name, ".") {
-		return fmt.Errorf("--report-name must not begin with '.' or be a relative-path component: %q", name)
+	if strings.HasPrefix(name, ".") {
+		return fmt.Errorf("--report-name must not begin with '.': %q", name)
 	}
 	return nil
 }

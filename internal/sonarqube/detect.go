@@ -4,8 +4,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 )
+
+var sqVersionRE = regexp.MustCompile(`^\d+\.\d+(\.\d+){0,2}$`)
+
+func truncateStr(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
+}
 
 var cloudBaseURLs = []string{
 	"https://sonarcloud.io",
@@ -53,9 +63,16 @@ func Detect(baseURL, token string, client *http.Client) (SonarInstance, error) {
 		return SonarInstance{}, fmt.Errorf("read server version response: %w", err)
 	}
 
+	version := strings.TrimSpace(string(body))
+	if !sqVersionRE.MatchString(version) {
+		return SonarInstance{}, fmt.Errorf(
+			"URL responded to /api/server/version but body does not look like a SonarQube version: %q (got %d bytes)",
+			truncateStr(version, 80), len(body))
+	}
+
 	return SonarInstance{
 		Product: Server,
-		Version: strings.TrimSpace(string(body)),
+		Version: version,
 		BaseURL: trimmed,
 		Token:   token,
 		Client:  client,

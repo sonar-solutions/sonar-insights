@@ -117,6 +117,25 @@ func TestDetect_Server403(t *testing.T) {
 	})
 }
 
+func TestDetect_UnexpectedStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprint(w, "maintenance mode")
+	}))
+	defer srv.Close()
+
+	_, err := Detect(srv.URL, "tok", NewHTTPClient())
+	if err == nil {
+		t.Fatal("expected error for 500, got nil")
+	}
+	if !strings.Contains(err.Error(), "maintenance mode") {
+		t.Errorf("expected body content in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "/api/server/version") {
+		t.Errorf("expected endpoint name in error, got: %v", err)
+	}
+}
+
 func TestDetect_TrimsTrailingSlash(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("10.8.0.100512"))

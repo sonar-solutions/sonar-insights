@@ -44,7 +44,7 @@ func knownTargets() []string {
 func init() {
 	logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	rootCmd.SetVersionTemplate("sonar-insights {{.Version}}\ncommit: " + Commit + "\nbuilt : " + Date + "\n")
+	rootCmd.SetVersionTemplate("sonar-insights {{.Version}}")
 
 	rootCmd.PersistentFlags().BoolVar(&timing, "timing", false, "log total execution time on exit")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug logging")

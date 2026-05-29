@@ -1,6 +1,7 @@
 package sonarqube
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"unicode/utf8"
@@ -20,4 +21,17 @@ func ErrorBodySnippet(resp *http.Response) string {
 		body = append(body, []byte("…")...)
 	}
 	return string(body)
+}
+
+// HTTPError builds an error from a non-OK response. It appends the response
+// body snippet when present; otherwise it falls back to fallback (if non-empty)
+// so callers never produce a message ending with ": ".
+func HTTPError(resp *http.Response, prefix, fallback string) error {
+	if snippet := ErrorBodySnippet(resp); snippet != "" {
+		return fmt.Errorf("%s: %s", prefix, snippet)
+	}
+	if fallback != "" {
+		return fmt.Errorf("%s: %s", prefix, fallback)
+	}
+	return fmt.Errorf("%s", prefix)
 }

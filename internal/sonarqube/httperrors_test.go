@@ -13,6 +13,40 @@ func makeResp(body string) *http.Response {
 	return &http.Response{Body: io.NopCloser(strings.NewReader(body))}
 }
 
+func TestHTTPError_WithBody(t *testing.T) {
+	err := HTTPError(makeResp(`{"errors":[{"msg":"License expired"}]}`), "unexpected status 400", "")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "License expired") {
+		t.Errorf("expected body in error, got: %v", err)
+	}
+}
+
+func TestHTTPError_EmptyBodyUsesFallback(t *testing.T) {
+	err := HTTPError(makeResp(""), "access forbidden (HTTP 403)", "token lacks required permissions")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "token lacks required permissions") {
+		t.Errorf("expected fallback in error, got: %v", err)
+	}
+}
+
+func TestHTTPError_EmptyBodyNoFallback(t *testing.T) {
+	err := HTTPError(makeResp(""), "unexpected status 503", "")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	msg := err.Error()
+	if strings.HasSuffix(msg, ": ") {
+		t.Errorf("error message must not end with trailing colon-space, got: %q", msg)
+	}
+	if !strings.Contains(msg, "unexpected status 503") {
+		t.Errorf("expected prefix in error, got: %v", err)
+	}
+}
+
 func TestErrorBodySnippet_ShortBody(t *testing.T) {
 	got := ErrorBodySnippet(makeResp(`{"errors":[{"msg":"bad token"}]}`))
 	if !strings.Contains(got, "bad token") {

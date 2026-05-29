@@ -198,6 +198,9 @@ func TestCollectBgTasks_403(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for 403, got nil")
 	}
+	if !strings.Contains(err.Error(), "token lacks required permissions") {
+		t.Errorf("expected fallback hint in error when body is empty, got: %v", err)
+	}
 }
 
 func TestCollectBgTasks_UnexpectedStatus(t *testing.T) {

@@ -51,15 +51,13 @@ func Detect(baseURL, token string, client *http.Client) (SonarInstance, error) {
 
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
-		return SonarInstance{}, fmt.Errorf("authentication failed (HTTP 401): %s",
-			ErrorBodySnippet(resp))
+		return SonarInstance{}, HTTPError(resp, "authentication failed (HTTP 401)", "invalid or missing token")
 	case http.StatusForbidden:
-		return SonarInstance{}, fmt.Errorf("access forbidden (HTTP 403): %s",
-			ErrorBodySnippet(resp))
+		return SonarInstance{}, HTTPError(resp, "access forbidden (HTTP 403)", "insufficient permissions")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return SonarInstance{}, fmt.Errorf("unexpected status %d from /api/server/version: %s",
-			resp.StatusCode, ErrorBodySnippet(resp))
+		return SonarInstance{}, HTTPError(resp,
+			fmt.Sprintf("unexpected status %d from /api/server/version", resp.StatusCode), "")
 	}
 
 	body, err := io.ReadAll(resp.Body)

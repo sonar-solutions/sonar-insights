@@ -137,12 +137,13 @@ func fetchPage(instance sonarqube.SonarInstance, maxExecutedAtEncoded string, pa
 
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
-		return pageResult{}, fmt.Errorf("authentication failed: invalid or missing token (HTTP 401)")
+		return pageResult{}, sonarqube.HTTPError(resp, "authentication failed (HTTP 401)", "invalid or missing token")
 	case http.StatusForbidden:
-		return pageResult{}, fmt.Errorf("access forbidden: token lacks required permissions (HTTP 403)")
+		return pageResult{}, sonarqube.HTTPError(resp, "access forbidden (HTTP 403)", "token lacks required permissions")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return pageResult{}, fmt.Errorf("unexpected status %d from /api/ce/activity", resp.StatusCode)
+		return pageResult{}, sonarqube.HTTPError(resp,
+			fmt.Sprintf("unexpected status %d from /api/ce/activity", resp.StatusCode), "")
 	}
 
 	body, err := io.ReadAll(resp.Body)

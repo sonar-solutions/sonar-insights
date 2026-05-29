@@ -172,7 +172,9 @@ func TestCollectBgTasks_Zero(t *testing.T) {
 
 func TestCollectBgTasks_401(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = fmt.Fprint(w, `{"errors":[{"msg":"Invalid authentication"}]}`)
 	}))
 	defer srv.Close()
 
@@ -180,6 +182,9 @@ func TestCollectBgTasks_401(t *testing.T) {
 	err := CollectBgTasks(makeInstance(srv.URL), outDir, 5, noopLogger())
 	if err == nil {
 		t.Fatal("expected error for 401, got nil")
+	}
+	if !strings.Contains(err.Error(), "Invalid authentication") {
+		t.Errorf("expected error to contain body content, got: %v", err)
 	}
 }
 
@@ -193,17 +198,24 @@ func TestCollectBgTasks_403(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for 403, got nil")
 	}
+	if !strings.Contains(err.Error(), "token lacks required permissions") {
+		t.Errorf("expected fallback hint in error when body is empty, got: %v", err)
+	}
 }
 
 func TestCollectBgTasks_UnexpectedStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprint(w, "maintenance mode")
 	}))
 	defer srv.Close()
 
 	err := CollectBgTasks(makeInstance(srv.URL), t.TempDir(), 5, noopLogger())
 	if err == nil {
 		t.Fatal("expected error for 500, got nil")
+	}
+	if !strings.Contains(err.Error(), "maintenance mode") {
+		t.Errorf("expected error to contain body content, got: %v", err)
 	}
 }
 

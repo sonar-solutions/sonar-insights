@@ -4,7 +4,7 @@ title: `fetchPage` discards response body on non-OK status, losing diagnostic co
 author: code-review
 date: 2026-05-25
 draft-status: ready
-impl-status: not-started
+impl-status: complete
 prerequisites: []
 ---
 

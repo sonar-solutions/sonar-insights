@@ -1,8 +1,10 @@
 package sonarqube
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -48,27 +50,54 @@ func TestDetect_Server(t *testing.T) {
 }
 
 func TestDetect_Server401(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer srv.Close()
+	t.Run("bare 401 uses fallback hint", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer srv.Close()
 
-	_, err := Detect(srv.URL, "bad", NewHTTPClient())
-	if err == nil {
-		t.Fatal("expected error for 401, got nil")
-	}
+		_, err := Detect(srv.URL, "bad", NewHTTPClient())
+		if err == nil {
+			t.Fatal("expected error for 401, got nil")
+		}
+		if !strings.Contains(err.Error(), "invalid or missing token") {
+			t.Errorf("expected fallback hint in error when body is empty, got: %v", err)
+		}
+	})
+
+	t.Run("401 with body uses body content", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, `{"errors":[{"msg":"Token has expired"}]}`)
+		}))
+		defer srv.Close()
+
+		_, err := Detect(srv.URL, "bad", NewHTTPClient())
+		if err == nil {
+			t.Fatal("expected error for 401, got nil")
+		}
+		if !strings.Contains(err.Error(), "Token has expired") {
+			t.Errorf("expected body content in error, got: %v", err)
+		}
+	})
 }
 
 func TestDetect_Server403(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-	}))
-	defer srv.Close()
+	t.Run("bare 403 uses fallback hint", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+		}))
+		defer srv.Close()
 
-	_, err := Detect(srv.URL, "bad", NewHTTPClient())
-	if err == nil {
-		t.Fatal("expected error for 403, got nil")
-	}
+		_, err := Detect(srv.URL, "bad", NewHTTPClient())
+		if err == nil {
+			t.Fatal("expected error for 403, got nil")
+		}
+		if !strings.Contains(err.Error(), "insufficient permissions") {
+			t.Errorf("expected fallback hint in error when body is empty, got: %v", err)
+		}
+	})
 }
 
 func TestDetect_TrimsTrailingSlash(t *testing.T) {

@@ -63,8 +63,10 @@ func TestParseOptionalDate_InvalidFormat(t *testing.T) {
 }
 
 func TestPrepareOutputDir_DangerousPath(t *testing.T) {
-	cases := []string{"/", ".", ".."}
-	if home := os.Getenv("HOME"); home != "" {
+	// Root and shallow system dirs (depth < 2)
+	cases := []string{"/", "/usr", "/etc", "/var"}
+	// Home directory
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		cases = append(cases, home)
 	}
 	for _, p := range cases {
@@ -84,7 +86,7 @@ func TestPrepareOutputDir_CreatesDir(t *testing.T) {
 	}
 }
 
-func TestPrepareOutputDir_RemovesExistingContent(t *testing.T) {
+func TestPrepareOutputDir_PreservesExistingContent(t *testing.T) {
 	target := t.TempDir()
 	sentinel := filepath.Join(target, "sentinel.txt")
 	if err := os.WriteFile(sentinel, []byte("existing"), 0o644); err != nil {
@@ -93,11 +95,11 @@ func TestPrepareOutputDir_RemovesExistingContent(t *testing.T) {
 	if err := prepareOutputDir(target); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
-		t.Error("expected existing file to be removed after prepareOutputDir")
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Errorf("existing file should be preserved after prepareOutputDir: %v", err)
 	}
 	if _, err := os.Stat(target); err != nil {
-		t.Errorf("output directory should exist after recreation: %v", err)
+		t.Errorf("output directory should exist: %v", err)
 	}
 }
 
@@ -109,7 +111,7 @@ func TestWriteCollectMetadata_Server(t *testing.T) {
 		BaseURL: "https://sonarqube.example.com",
 		Token:   "tok",
 	}
-	if err := writeCollectMetadata(inst, []string{"bgtasks"}, outDir); err != nil {
+	if err := writeCollectMetadata(inst, outDir); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(outDir, "collect-metadata.json"))
@@ -126,9 +128,6 @@ func TestWriteCollectMetadata_Server(t *testing.T) {
 	if meta.SonarQubeVersion == nil || *meta.SonarQubeVersion != inst.Version {
 		t.Errorf("SonarQubeVersion: got %v, want %q", meta.SonarQubeVersion, inst.Version)
 	}
-	if len(meta.Targets) != 1 || meta.Targets[0] != "bgtasks" {
-		t.Errorf("Targets: got %v, want [bgtasks]", meta.Targets)
-	}
 	if meta.CollectionTimestamp == "" {
 		t.Error("CollectionTimestamp must not be empty")
 	}
@@ -141,7 +140,7 @@ func TestWriteCollectMetadata_Cloud(t *testing.T) {
 		BaseURL: "https://sonarcloud.io",
 		Token:   "tok",
 	}
-	if err := writeCollectMetadata(inst, []string{"bgtasks"}, outDir); err != nil {
+	if err := writeCollectMetadata(inst, outDir); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(outDir, "collect-metadata.json"))

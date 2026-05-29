@@ -40,8 +40,8 @@ func CollectBgTasks(instance sonarqube.SonarInstance, outDir string, parallel in
 	logger.Info("collecting background tasks")
 
 	targetDir := filepath.Join(outDir, "bgtasks")
-	if err := os.MkdirAll(targetDir, 0o755); err != nil {
-		return fmt.Errorf("create bgtasks output dir: %w", err)
+	if err := prepareTargetDir(targetDir); err != nil {
+		return fmt.Errorf("prepare bgtasks output dir: %w", err)
 	}
 
 	maxExecutedAt := buildMaxExecutedAt(time.Now())
@@ -165,6 +165,16 @@ func fetchPage(instance sonarqube.SonarInstance, maxExecutedAtEncoded string, pa
 func writePage(body []byte, dir string, page int) error {
 	filename := fmt.Sprintf("background-tasks-page-%04d.json", page)
 	return os.WriteFile(filepath.Join(dir, filename), body, 0o644)
+}
+
+func prepareTargetDir(targetDir string) error {
+	if err := os.RemoveAll(targetDir); err != nil {
+		return fmt.Errorf("remove target directory: %w", err)
+	}
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return fmt.Errorf("create target directory: %w", err)
+	}
+	return nil
 }
 
 func buildMaxExecutedAt(now time.Time) string {

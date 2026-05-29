@@ -252,6 +252,61 @@ func TestCollectBgTasks_ConcurrentPageError(t *testing.T) {
 	}
 }
 
+func TestCollectBgTasks_ClearsPreviousTargetData(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(makeResponse(10, 1))
+	}))
+	defer srv.Close()
+
+	outDir := t.TempDir()
+	inst := makeInstance(srv.URL)
+
+	if err := CollectBgTasks(inst, outDir, 5, noopLogger()); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	stale := filepath.Join(outDir, "bgtasks", "stale-file.json")
+	if err := os.WriteFile(stale, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+	if err := CollectBgTasks(inst, outDir, 5, noopLogger()); err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Error("stale file from previous run should be removed on re-collect")
+	}
+}
+
+func TestCollectBgTasks_PreservesSiblingDirs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(makeResponse(10, 1))
+	}))
+	defer srv.Close()
+
+	outDir := t.TempDir()
+	inst := makeInstance(srv.URL)
+
+	if err := CollectBgTasks(inst, outDir, 5, noopLogger()); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+
+	sibling := filepath.Join(outDir, "metrics", "foo.json")
+	if err := os.MkdirAll(filepath.Dir(sibling), 0o755); err != nil {
+		t.Fatalf("create sibling dir: %v", err)
+	}
+	if err := os.WriteFile(sibling, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write sibling file: %v", err)
+	}
+
+	if err := CollectBgTasks(inst, outDir, 5, noopLogger()); err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+	if _, err := os.Stat(sibling); err != nil {
+		t.Errorf("sibling file metrics/foo.json should be preserved after re-collect bgtasks: %v", err)
+	}
+}
+
 func TestCollectBgTasks_VerbatimResponse(t *testing.T) {
 	raw := makeResponse(1, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

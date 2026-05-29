@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sonar-solutions/sonar-insights/internal/collector"
@@ -79,7 +80,7 @@ func runCollect(targets []string, url, token, outDir string, parallel int) error
 		return err
 	}
 
-	if err := writeCollectMetadata(instance, targets, outDir); err != nil {
+	if err := writeCollectMetadata(instance, outDir); err != nil {
 		return fmt.Errorf("write collect metadata: %w", err)
 	}
 
@@ -96,28 +97,78 @@ func runCollect(targets []string, url, token, outDir string, parallel int) error
 	return nil
 }
 
+// prepareOutputDir ensures outDir exists without deleting any existing content.
+// It rejects paths that are too shallow or known to be dangerous (system roots, home dir).
 func prepareOutputDir(outDir string) error {
-	cleaned := filepath.Clean(outDir)
-	if cleaned == "/" || cleaned == "." || cleaned == ".." || cleaned == os.Getenv("HOME") {
-		return fmt.Errorf("refusing to remove dangerous path: %s", outDir)
+	abs, err := filepath.Abs(outDir)
+	if err != nil {
+		return fmt.Errorf("resolve output directory path: %w", err)
 	}
-	if err := os.RemoveAll(outDir); err != nil {
-		return fmt.Errorf("remove output directory: %w", err)
+	if err := checkDangerousPath(abs); err != nil {
+		return err
 	}
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
 	return nil
 }
 
-type collectMetadata struct {
-	SonarQubeURL        string   `json:"sonarqubeURL"`
-	CollectionTimestamp string   `json:"collectionTimestamp"`
-	SonarQubeVersion    *string  `json:"sonarqubeVersion"`
-	Targets             []string `json:"targets"`
+func checkDangerousPath(abs string) error {
+	if pathDepth(abs) < 2 {
+		return fmt.Errorf("refusing to use shallow path as output directory: %s", abs)
+	}
+
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" {
+		if abs == filepath.Clean(home) {
+			return fmt.Errorf("refusing to use home directory as output directory: %s", abs)
+		}
+	}
+
+	for _, sysRoot := range []string{"/usr", "/etc", "/var", "/opt", "/bin", "/sbin"} {
+		if abs == filepath.Clean(sysRoot) {
+			return fmt.Errorf("refusing to use system directory as output directory: %s", abs)
+		}
+	}
+
+	if gopath := os.Getenv("GOPATH"); gopath != "" {
+		cleanGopath := filepath.Clean(gopath)
+		if abs == cleanGopath || strings.HasPrefix(abs, cleanGopath+string(filepath.Separator)) {
+			return fmt.Errorf("refusing to use GOPATH directory as output directory: %s", abs)
+		}
+	}
+
+	if exe, err := os.Executable(); err == nil {
+		if abs == filepath.Dir(exe) {
+			return fmt.Errorf("refusing to use executable directory as output directory: %s", abs)
+		}
+	}
+
+	return nil
 }
 
-func writeCollectMetadata(instance sonarqube.SonarInstance, targets []string, outDir string) error {
+// pathDepth counts the number of non-empty path components below the volume root.
+// e.g. "/foo" → 1, "/foo/bar" → 2, "C:\foo\bar" → 2.
+func pathDepth(absPath string) int {
+	vol := filepath.VolumeName(absPath)
+	rel := absPath[len(vol):]
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	count := 0
+	for _, p := range parts {
+		if p != "" {
+			count++
+		}
+	}
+	return count
+}
+
+type collectMetadata struct {
+	SonarQubeURL        string  `json:"sonarqubeURL"`
+	CollectionTimestamp string  `json:"collectionTimestamp"`
+	SonarQubeVersion    *string `json:"sonarqubeVersion"`
+}
+
+func writeCollectMetadata(instance sonarqube.SonarInstance, outDir string) error {
 	var version *string
 	if instance.Product == sonarqube.Server {
 		v := instance.Version
@@ -128,7 +179,6 @@ func writeCollectMetadata(instance sonarqube.SonarInstance, targets []string, ou
 		SonarQubeURL:        instance.BaseURL,
 		CollectionTimestamp: time.Now().UTC().Format(time.RFC3339),
 		SonarQubeVersion:    version,
-		Targets:             targets,
 	}
 
 	data, err := json.MarshalIndent(metadata, "", "    ")

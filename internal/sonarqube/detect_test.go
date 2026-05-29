@@ -98,6 +98,23 @@ func TestDetect_Server403(t *testing.T) {
 			t.Errorf("expected fallback hint in error when body is empty, got: %v", err)
 		}
 	})
+
+	t.Run("403 with body uses body content", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = fmt.Fprint(w, `{"errors":[{"msg":"Insufficient privileges"}]}`)
+		}))
+		defer srv.Close()
+
+		_, err := Detect(srv.URL, "bad", NewHTTPClient())
+		if err == nil {
+			t.Fatal("expected error for 403, got nil")
+		}
+		if !strings.Contains(err.Error(), "Insufficient privileges") {
+			t.Errorf("expected body content in error, got: %v", err)
+		}
+	})
 }
 
 func TestDetect_TrimsTrailingSlash(t *testing.T) {

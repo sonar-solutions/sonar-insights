@@ -4,7 +4,7 @@ title: Narrow `prepareOutputDir`'s blast radius — delete per-target, not whole
 author: code-review
 date: 2026-05-25
 draft-status: ready
-impl-status: not-started
+impl-status: complete
 prerequisites: []
 ---
 

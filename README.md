@@ -11,8 +11,8 @@ instance into self-contained HTML reports. It is designed to help platform
 owners, performance engineers, and SonarQube administrators understand how
 their server is being used — without standing up additional infrastructure.
 
-It works against both **SonarQube Cloud** (`sonarcloud.io`, `sonarcloud.us`)
-and self-hosted **SonarQube Server**.
+It currently supports self-hosted **SonarQube Server**. SonarQube Cloud
+support is not yet available.
 
 ## How it works
 
@@ -94,7 +94,7 @@ or via environment variables. Flags take precedence.
 
 | Setting              | Flag       | Environment variable | Default                  |
 | -------------------- | ---------- | -------------------- | ------------------------ |
-| SonarQube base URL   | `--url`    | `SONAR_HOST_URL`     | `https://sonarcloud.io`  |
+| SonarQube base URL   | `--url`    | `SONAR_HOST_URL`     | _(required)_             |
 | Authentication token | `--token`  | `SONAR_TOKEN`        | _(required)_             |
 
 Generate a user token from your SonarQube account under
@@ -106,13 +106,18 @@ the data you intend to collect.
 ### Quickstart: collect and report in one shot
 
 ```sh
-export SONAR_TOKEN=squ_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-sonar-insights run bgtasks
+sonar-insights run bgtasks \
+  --url https://sonarqube.example.com \
+  --token squ_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 This fetches the data, writes it under `./sonar-data/`, and produces
 `./sonar-reports/report-bgtasks.html`. Open that file in any browser — it
 is fully self-contained and works offline.
+
+`--url` and `--token` can also be supplied via the `SONAR_HOST_URL` and
+`SONAR_TOKEN` environment variables; see the [Configuration](#configuration)
+section.
 
 ### Collecting data only
 

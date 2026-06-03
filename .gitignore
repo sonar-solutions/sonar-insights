@@ -41,3 +41,5 @@ prompt-draft.md
 sonar-data
 sonar-reports
 .vscode/settings.json
+STATUS.md
+create-worktree.sh

@@ -4,7 +4,7 @@ title: README Current Scope
 author: lukas-frystak-sonarsource
 date: 2026-06-03
 draft-status: ready
-impl-status: not-started
+impl-status: complete
 prerequisites: []
 ---
 

@@ -14,6 +14,10 @@ their server is being used — without standing up additional infrastructure.
 It currently supports self-hosted **SonarQube Server**. SonarQube Cloud
 support is not yet available.
 
+> **Example output:** [`examples/report-bgtasks.html`](examples/report-bgtasks.html) shows what a real report looks like.
+
+<p align="center"><img src="img/example-screenshot-bgtasks.png" width="700" alt="Example report screenshot"></p>
+
 ## How it works
 
 The tool is split into two stages so that data collection and report

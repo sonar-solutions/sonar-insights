@@ -65,7 +65,7 @@ jobs:
           "-Dsonar.projectName=${{ env.SQC_PROJECT_NAME }}"
           -Dsonar.sources=.
           -Dsonar.tests=.
-          -Dsonar.exclusions=**/*_test.go
+          -Dsonar.exclusions=**/*_test.go,examples/**/*
           -Dsonar.test.inclusions=**/*_test.go
           -Dsonar.go.coverage.reportPaths=coverage.out
           -Dsonar.verbose=${{ inputs.sonar_verbose || false }}

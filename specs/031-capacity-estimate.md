@@ -4,7 +4,7 @@ title: Capacity Estimate (workers → supportable jobs)
 author: lfrystak
 date: 2026-06-26
 draft-status: ready
-impl-status: not-started
+impl-status: in-progress
 prerequisites: [002]
 ---
 

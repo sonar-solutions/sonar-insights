@@ -196,9 +196,13 @@ func buildCategoryEstimates(buckets [][]BgTask, totalReportMs int64, maxObserved
 
 		upperBound := thresh.upperBoundSec
 		if i == len(timeThresholds)-1 {
-			upperBound = (maxObservedMs + 999) / 1000
 			lo := timeThresholds[i-1].upperBoundSec
-			label = fmt.Sprintf("%s (%d-%ds)", name, lo, upperBound)
+			upperBound = (maxObservedMs + 999) / 1000
+			if upperBound <= lo {
+				label = fmt.Sprintf("%s (> %ds)", name, lo)
+			} else {
+				label = fmt.Sprintf("%s (%d-%ds)", name, lo, upperBound)
+			}
 		}
 
 		bucket := buckets[i]

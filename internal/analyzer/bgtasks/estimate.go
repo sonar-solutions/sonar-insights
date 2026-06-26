@@ -22,6 +22,7 @@ type CategoryEstimate struct {
 	FloorApplied      bool
 	BucketCount       int
 	BucketSumMs       int64
+	CatCapacitySec    float64
 	Jobs              float64
 	JobsLow           float64
 	JobsHigh          float64
@@ -268,6 +269,7 @@ func computeWorkerEstimate(n int, reportShare float64, cats []CategoryEstimate) 
 			jobs = catCapacitySec / c.RepresentativeSec
 		}
 		cat := c
+		cat.CatCapacitySec = catCapacitySec
 		cat.Jobs = jobs
 		cat.JobsLow = jobs * (1 - estimateMargin)
 		cat.JobsHigh = jobs * (1 + estimateMargin)

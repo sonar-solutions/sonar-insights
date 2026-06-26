@@ -133,9 +133,8 @@ func logCapacityEstimate(tasks []bgtasks.BgTask, workerCounts []int, logger *slo
 		logger.Debug(fmt.Sprintf("capacity estimate step 5: workers=%d  capacityPerHour=%.0fs  reportCapacity=%.0fs",
 			we.Workers, capacitySec, reportCapacitySec))
 		for _, c := range we.Categories {
-			catCapacitySec := reportCapacitySec * c.Share
 			logger.Debug(fmt.Sprintf("capacity estimate step 5: workers=%d  %-18s catCapacity=%.1fs",
-				we.Workers, c.Label, catCapacitySec))
+				we.Workers, c.Label, c.CatCapacitySec))
 		}
 
 		logger.Info(fmt.Sprintf("capacity estimate (per hour, ±20%%) for %d workers: total ≈ %d analyses (%d–%d)",

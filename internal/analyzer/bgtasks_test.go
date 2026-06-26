@@ -172,7 +172,7 @@ func writeBgtasksDir(t *testing.T, parent string) string {
 
 func TestAnalyzeBgTasks_MissingBgtasksDir(t *testing.T) {
 	dir := t.TempDir() // no bgtasks/ subdirectory
-	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger)
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger, nil)
 	if err == nil {
 		t.Fatal("expected error for missing bgtasks directory, got nil")
 	}
@@ -184,7 +184,7 @@ func TestAnalyzeBgTasks_MissingBgtasksDir(t *testing.T) {
 func TestAnalyzeBgTasks_EmptyBgtasksDir(t *testing.T) {
 	dir := t.TempDir()
 	writeBgtasksDir(t, dir) // exists but has no JSON files
-	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger)
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger, nil)
 	if err == nil {
 		t.Fatal("expected error for empty bgtasks directory, got nil")
 	}
@@ -201,7 +201,7 @@ func TestAnalyzeBgTasks_NoTasksAfterDateFilter(t *testing.T) {
 	}
 	// Task is on 2026-01-15; filter from 2026-02-01 excludes it.
 	from := ptr(date(2026, time.February, 1))
-	err := AnalyzeBgTasks(dir, t.TempDir(), "report", from, nil, testLogger)
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", from, nil, testLogger, nil)
 	if err == nil {
 		t.Fatal("expected error when all tasks are filtered by date, got nil")
 	}
@@ -217,7 +217,7 @@ func TestAnalyzeBgTasks_HappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	reportDir := t.TempDir()
-	if err := AnalyzeBgTasks(dir, reportDir, "myreport", nil, nil, testLogger); err != nil {
+	if err := AnalyzeBgTasks(dir, reportDir, "myreport", nil, nil, testLogger, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(reportDir, "myreport.html")); os.IsNotExist(err) {

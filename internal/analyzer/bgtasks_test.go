@@ -172,7 +172,7 @@ func writeBgtasksDir(t *testing.T, parent string) string {
 
 func TestAnalyzeBgTasks_MissingBgtasksDir(t *testing.T) {
 	dir := t.TempDir() // no bgtasks/ subdirectory
-	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger)
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger, nil)
 	if err == nil {
 		t.Fatal("expected error for missing bgtasks directory, got nil")
 	}
@@ -184,7 +184,7 @@ func TestAnalyzeBgTasks_MissingBgtasksDir(t *testing.T) {
 func TestAnalyzeBgTasks_EmptyBgtasksDir(t *testing.T) {
 	dir := t.TempDir()
 	writeBgtasksDir(t, dir) // exists but has no JSON files
-	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger)
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", nil, nil, testLogger, nil)
 	if err == nil {
 		t.Fatal("expected error for empty bgtasks directory, got nil")
 	}
@@ -201,7 +201,7 @@ func TestAnalyzeBgTasks_NoTasksAfterDateFilter(t *testing.T) {
 	}
 	// Task is on 2026-01-15; filter from 2026-02-01 excludes it.
 	from := ptr(date(2026, time.February, 1))
-	err := AnalyzeBgTasks(dir, t.TempDir(), "report", from, nil, testLogger)
+	err := AnalyzeBgTasks(dir, t.TempDir(), "report", from, nil, testLogger, nil)
 	if err == nil {
 		t.Fatal("expected error when all tasks are filtered by date, got nil")
 	}
@@ -217,7 +217,96 @@ func TestAnalyzeBgTasks_HappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	reportDir := t.TempDir()
-	if err := AnalyzeBgTasks(dir, reportDir, "myreport", nil, nil, testLogger); err != nil {
+	if err := AnalyzeBgTasks(dir, reportDir, "myreport", nil, nil, testLogger, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(reportDir, "myreport.html")); os.IsNotExist(err) {
+		t.Error("expected report file myreport.html to be created")
+	}
+}
+
+// estimateTaskJSON has: 1 REPORT (M bucket, 9s), 1 REPORT (XXS, 20ms → floor applied),
+// and 1 ISSUE_SYNC which must be excluded from the estimate.
+const estimateTaskJSON = `{
+	"tasks": [
+		{
+			"id": "task-001",
+			"type": "REPORT",
+			"status": "SUCCESS",
+			"submittedAt": "2026-01-15T10:00:00+0000",
+			"startedAt":   "2026-01-15T10:00:01+0000",
+			"executedAt":  "2026-01-15T10:00:10+0000",
+			"executionTimeMs": 9000,
+			"componentKey": "my-project",
+			"branchType": "BRANCH"
+		},
+		{
+			"id": "task-002",
+			"type": "REPORT",
+			"status": "SUCCESS",
+			"submittedAt": "2026-01-15T10:01:00+0000",
+			"startedAt":   "2026-01-15T10:01:00+0000",
+			"executedAt":  "2026-01-15T10:01:01+0000",
+			"executionTimeMs": 20,
+			"componentKey": "fast-project",
+			"branchType": "BRANCH"
+		},
+		{
+			"id": "task-003",
+			"type": "ISSUE_SYNC",
+			"status": "SUCCESS",
+			"submittedAt": "2026-01-15T11:00:00+0000",
+			"startedAt":   "2026-01-15T11:00:00+0000",
+			"executedAt":  "2026-01-15T11:00:50+0000",
+			"executionTimeMs": 50000,
+			"branchType": "BRANCH"
+		}
+	],
+	"paging": {"pageIndex": 1, "pageSize": 500, "total": 3}
+}`
+
+// noReportTaskJSON has only a non-REPORT task so the estimator is skipped.
+const noReportTaskJSON = `{
+	"tasks": [{
+		"id": "task-010",
+		"type": "VIEW_REFRESH",
+		"status": "SUCCESS",
+		"submittedAt": "2026-01-15T10:00:00+0000",
+		"startedAt":   "2026-01-15T10:00:00+0000",
+		"executedAt":  "2026-01-15T10:00:05+0000",
+		"executionTimeMs": 5000,
+		"branchType": "BRANCH"
+	}],
+	"paging": {"pageIndex": 1, "pageSize": 500, "total": 1}
+}`
+
+func TestAnalyzeBgTasks_WithEstimateWorkers(t *testing.T) {
+	dir := t.TempDir()
+	bgtasksDir := writeBgtasksDir(t, dir)
+	if err := os.WriteFile(filepath.Join(bgtasksDir, "page-0001.json"), []byte(estimateTaskJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reportDir := t.TempDir()
+	// Use a debug logger to exercise all log branches in logCapacityEstimate.
+	debugLogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	if err := AnalyzeBgTasks(dir, reportDir, "myreport", nil, nil, debugLogger, []int{4, 8}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Report must still be written despite the estimate running.
+	if _, err := os.Stat(filepath.Join(reportDir, "myreport.html")); os.IsNotExist(err) {
+		t.Error("expected report file myreport.html to be created")
+	}
+}
+
+func TestAnalyzeBgTasks_EstimateSkipped_NoReport(t *testing.T) {
+	dir := t.TempDir()
+	bgtasksDir := writeBgtasksDir(t, dir)
+	if err := os.WriteFile(filepath.Join(bgtasksDir, "page-0001.json"), []byte(noReportTaskJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reportDir := t.TempDir()
+	// estimateWorkers is set but there are no REPORT tasks → estimator must skip gracefully.
+	if err := AnalyzeBgTasks(dir, reportDir, "myreport", nil, nil, testLogger, []int{4}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(reportDir, "myreport.html")); os.IsNotExist(err) {

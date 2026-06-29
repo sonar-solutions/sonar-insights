@@ -109,6 +109,9 @@ func logCapacityEstimate(tasks []bgtasks.BgTask, workerCounts []int, logger *slo
 	logger.Info(fmt.Sprintf("capacity estimate: REPORT (project analysis) accounts for %.1f%% of non-ISSUE_SYNC compute time",
 		est.ReportShare*100))
 
+	// Step 2b — demand profile
+	logDemandProfile(est.Demand, logger)
+
 	// Step 3 — category shares
 	for _, c := range est.WorkerEstimates[0].Categories {
 		logger.Debug(fmt.Sprintf("capacity estimate step 3: %-18s tasks=%d  sum_ms=%d  share=%.2f%%",
@@ -116,41 +119,59 @@ func logCapacityEstimate(tasks []bgtasks.BgTask, workerCounts []int, logger *slo
 	}
 	logger.Debug(fmt.Sprintf("capacity estimate step 3: XXXL max observed = %dms", est.MaxObservedMs))
 
-	// Step 4 — representative costs (from the first worker estimate, which shares cats with all)
+	// Step 4 — representative costs (mean)
 	for _, c := range est.WorkerEstimates[0].Categories {
 		floor := ""
 		if c.FloorApplied {
 			floor = " (floor applied)"
 		}
-		logger.Debug(fmt.Sprintf("capacity estimate step 4: %-18s representative=%.1fs%s",
+		logger.Debug(fmt.Sprintf("capacity estimate step 4: %-18s mean=%.3fs%s",
 			c.Label, c.RepresentativeSec, floor))
 	}
 
-	// Step 5 — per-worker intermediate values and results
+	// Step 5 — per-worker capacity and verdicts
 	for _, we := range est.WorkerEstimates {
-		capacitySec := float64(we.Workers) * secondsPerHour
-		reportCapacitySec := capacitySec * est.ReportShare
-		logger.Debug(fmt.Sprintf("capacity estimate step 5: workers=%d  capacityPerHour=%.0fs  reportCapacity=%.0fs",
-			we.Workers, capacitySec, reportCapacitySec))
-		for _, c := range we.Categories {
-			logger.Debug(fmt.Sprintf("capacity estimate step 5: workers=%d  %-18s catCapacity=%.1fs",
-				we.Workers, c.Label, c.CatCapacitySec))
-		}
+		logWorkerEstimate(we, est.Demand, est.ReportShare, logger)
+	}
+}
 
-		logger.Info(fmt.Sprintf("capacity estimate (per hour, ±20%%) for %d workers: total ≈ %d analyses (%d–%d)",
-			we.Workers, iround(we.TotalJobs), iround(we.TotalLow), iround(we.TotalHigh)))
+func logDemandProfile(d bgtasks.DemandProfile, logger *slog.Logger) {
+	logger.Debug(fmt.Sprintf("capacity estimate step 2b: observedHours=%d  avgDemandPerHour=%.1f  peakDemandPerHour=%.1f (p95)  busiestHour=%d",
+		d.ObservedHours, d.AvgPerHour, d.PeakPerHour, d.BusiestHourCount))
+	if d.Available {
+		days := d.ObservedHours / 24
+		logger.Info(fmt.Sprintf("capacity estimate: REPORT demand averaged ≈ %.0f analyses/hour, peaking at ≈ %.0f/hour (over %d days)",
+			d.AvgPerHour, d.PeakPerHour, days))
+	} else {
+		logger.Info(fmt.Sprintf("capacity estimate: REPORT demand averaged ≈ %.0f analyses/hour (insufficient span for peak estimate: %d hours observed)",
+			d.AvgPerHour, d.ObservedHours))
+	}
+}
 
-		line := "  "
-		for _, c := range we.Categories {
-			if c.BucketCount == 0 {
-				continue
-			}
-			line += fmt.Sprintf("%s: ≈ %d (%d–%d)   ", c.Label, iround(c.Jobs), iround(c.JobsLow), iround(c.JobsHigh))
-		}
-		if line != "  " {
-			logger.Info(line)
+func logWorkerEstimate(we bgtasks.WorkerEstimate, demand bgtasks.DemandProfile, reportShare float64, logger *slog.Logger) {
+	capacitySec := float64(we.Workers) * secondsPerHour
+	reportCapacitySec := capacitySec * reportShare
+	logger.Debug(fmt.Sprintf("capacity estimate step 5: workers=%d  capacityPerHour=%.0fs  reportCapacity=%.0fs",
+		we.Workers, capacitySec, reportCapacitySec))
+	for _, c := range we.Categories {
+		logger.Debug(fmt.Sprintf("capacity estimate step 5: workers=%d  %-18s catCapacity=%.1fs",
+			we.Workers, c.Label, c.CatCapacitySec))
+	}
+
+	logger.Info(fmt.Sprintf("capacity estimate (per hour) for %d workers: capacity ≈ %d analyses/hour",
+		we.Workers, iround(we.TotalJobs)))
+
+	line := "  "
+	for _, c := range we.Categories {
+		if c.BucketCount == 0 {
+			line += fmt.Sprintf("%s: no tasks   ", c.Label)
+		} else {
+			line += fmt.Sprintf("%s: ≈ %d   ", c.Label, iround(c.Jobs))
 		}
 	}
+	logger.Info(line)
+
+	logger.Info(fmt.Sprintf("  verdict: %s", bgtasks.VerdictFor(we.TotalJobs, demand)))
 }
 
 const secondsPerHour = 3600

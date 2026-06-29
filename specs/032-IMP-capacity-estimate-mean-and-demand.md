@@ -4,7 +4,7 @@ title: Capacity Estimate Refinement — mean cost + demand profile
 author: lfrystak
 date: 2026-06-29
 draft-status: ready
-impl-status: not-started
+impl-status: in-progress
 prerequisites: [031]
 amends: 031
 ---

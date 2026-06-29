@@ -2,15 +2,17 @@ package bgtasks
 
 import (
 	"fmt"
-	"math"
 	"sort"
+	"time"
+
+	"github.com/sonar-solutions/sonar-insights/internal/mathutil"
 )
 
 const (
-	modeRoundingSec = 0.1
-	modeFloorSec    = 0.1
-	estimateMargin  = 0.20
-	secondsPerHour  = 3600
+	costFloorSec         = 0.1
+	secondsPerHour       = 3600
+	minObservedHours     = 24
+	demandPeakPercentile = 95
 )
 
 // CategoryEstimate holds the capacity estimate for one size category.
@@ -18,23 +20,28 @@ type CategoryEstimate struct {
 	Label             string
 	UpperBoundSec     int
 	Share             float64
-	RepresentativeSec float64
+	RepresentativeSec float64 // mean, clamped to costFloorSec
 	FloorApplied      bool
 	BucketCount       int
 	BucketSumMs       int64
 	CatCapacitySec    float64
-	Jobs              float64
-	JobsLow           float64
-	JobsHigh          float64
+	Jobs              float64 // jobs/hour
 }
 
 // WorkerEstimate holds the capacity estimate for one worker count.
 type WorkerEstimate struct {
 	Workers    int
 	Categories []CategoryEstimate
-	TotalJobs  float64
-	TotalLow   float64
-	TotalHigh  float64
+	TotalJobs  float64 // capacity jobs/hour
+}
+
+// DemandProfile describes how REPORT analyses arrive over time.
+type DemandProfile struct {
+	Available        bool // false when observedHours < minObservedHours
+	ObservedHours    int
+	AvgPerHour       float64
+	PeakPerHour      float64 // p95 of hourly counts (zero-filled)
+	BusiestHourCount int     // absolute max hourly count
 }
 
 // CapacityEstimate is the top-level result of the capacity estimation.
@@ -46,8 +53,8 @@ type CapacityEstimate struct {
 	NonSyncCount    int
 	ReportCount     int
 	MaxObservedMs   int
-	MarginPct       float64
 	PerHour         bool
+	Demand          DemandProfile
 	WorkerEstimates []WorkerEstimate
 }
 
@@ -87,7 +94,10 @@ func EstimateCapacity(tasks []BgTask, workerCounts []int) (CapacityEstimate, boo
 	reportShare := float64(totalReportMs) / float64(totalNonSyncMs)
 	maxObservedMs := maxExecutionMs(reportTasks)
 
-	// Step 3 & 4: categorise and compute representative costs
+	// Step 2b: demand profile
+	demand := computeDemandProfile(reportTasks)
+
+	// Step 3 & 4: categorise and compute representative costs (mean)
 	buckets := bucketReportTasks(reportTasks)
 	categories := buildCategoryEstimates(buckets, totalReportMs, maxObservedMs)
 
@@ -107,10 +117,69 @@ func EstimateCapacity(tasks []BgTask, workerCounts []int) (CapacityEstimate, boo
 		NonSyncCount:    len(nonSync),
 		ReportCount:     len(reportTasks),
 		MaxObservedMs:   maxObservedMs,
-		MarginPct:       estimateMargin,
 		PerHour:         true,
+		Demand:          demand,
 		WorkerEstimates: workerEstimates,
 	}, false, ""
+}
+
+// computeDemandProfile measures REPORT arrival rate using SubmittedAt.
+// Tasks are bucketed into UTC clock-hour bins; hours with no arrivals are
+// zero-filled so the average reflects real calendar time.
+func computeDemandProfile(reportTasks []BgTask) DemandProfile {
+	hourCounts := make(map[time.Time]int)
+	var earliest, latest time.Time
+	for i, t := range reportTasks {
+		hour := t.SubmittedAt.UTC().Truncate(time.Hour)
+		hourCounts[hour]++
+		if i == 0 || t.SubmittedAt.Before(earliest) {
+			earliest = t.SubmittedAt
+		}
+		if i == 0 || t.SubmittedAt.After(latest) {
+			latest = t.SubmittedAt
+		}
+	}
+
+	earliestHour := earliest.UTC().Truncate(time.Hour)
+	latestHour := latest.UTC().Truncate(time.Hour)
+	observedHours := int(latestHour.Sub(earliestHour).Hours()) + 1
+
+	counts := make([]int, 0, observedHours)
+	busiestHourCount := 0
+	for h := earliestHour; !h.After(latestHour); h = h.Add(time.Hour) {
+		c := hourCounts[h]
+		counts = append(counts, c)
+		if c > busiestHourCount {
+			busiestHourCount = c
+		}
+	}
+
+	avgPerHour := float64(len(reportTasks)) / float64(observedHours)
+	peakPerHour := mathutil.CalculatePercentile(counts, float64(demandPeakPercentile)/100.0)
+
+	return DemandProfile{
+		Available:        observedHours >= minObservedHours,
+		ObservedHours:    observedHours,
+		AvgPerHour:       avgPerHour,
+		PeakPerHour:      peakPerHour,
+		BusiestHourCount: busiestHourCount,
+	}
+}
+
+// VerdictFor returns the plain-language verdict comparing capacityPerHour jobs/hour to d.
+func VerdictFor(capacityPerHour float64, d DemandProfile) string {
+	avg := d.AvgPerHour
+	if !d.Available {
+		return fmt.Sprintf("average demand ≈ %.0f/hr; insufficient time span to estimate peak-hour load", avg)
+	}
+	peak := d.PeakPerHour
+	if capacityPerHour >= peak {
+		return fmt.Sprintf("covers your peak hour (≈ %.0f/hr) with ≈ %.0f/hr to spare", peak, capacityPerHour-peak)
+	}
+	if capacityPerHour >= avg {
+		return fmt.Sprintf("keeps up with average demand (≈ %.0f/hr) but during peak hours (≈ %.0f/hr) ≈ %.0f/hr would queue and drain in quieter periods", avg, peak, peak-capacityPerHour)
+	}
+	return fmt.Sprintf("below your average demand (≈ %.0f/hr) — sustained backlog likely; consider more workers", avg)
 }
 
 func countType(tasks []BgTask, taskType string) int {
@@ -227,39 +296,25 @@ func buildCategoryEstimates(buckets [][]BgTask, totalReportMs int64, maxObserved
 	return cats
 }
 
-// representativeCost returns the mode (rounded to modeRoundingSec) of execution
-// times in the bucket, clamped to modeFloorSec. Returns (0, false) for empty buckets.
+// representativeCost returns the mean execution time of tasks (in seconds),
+// clamped to costFloorSec. Returns (0, false) for empty buckets.
 func representativeCost(tasks []BgTask) (float64, bool) {
 	if len(tasks) == 0 {
 		return 0, false
 	}
-	freq := make(map[int64]int, len(tasks))
+	var totalMs int64
 	for _, t := range tasks {
-		rounded := roundToGranularity(float64(t.ExecutionTimeMs)/1000.0, modeRoundingSec)
-		freq[rounded]++
+		totalMs += int64(t.ExecutionTimeMs)
 	}
-
-	var modeKey int64
-	modeCount := -1
-	for k, c := range freq {
-		if c > modeCount || (c == modeCount && k < modeKey) {
-			modeCount = c
-			modeKey = k
-		}
+	mean := float64(totalMs) / float64(len(tasks)) / 1000.0
+	if mean < costFloorSec {
+		return costFloorSec, true
 	}
-	result := float64(modeKey) * modeRoundingSec
-	if result < modeFloorSec {
-		return modeFloorSec, true
-	}
-	return result, false
+	return mean, false
 }
 
-// roundToGranularity rounds sec to the nearest granularity step and returns
-// the step index (i.e. result / granularity as an integer).
-func roundToGranularity(sec, granularity float64) int64 {
-	return int64(math.Round(sec / granularity))
-}
-
+// computeWorkerEstimate computes capacity for n workers.
+// Capacity chain: capacityPerHourSec(n) → reportCapacitySec(n) → catCapacitySec_c(n) → jobs_c(n).
 func computeWorkerEstimate(n int, reportShare float64, cats []CategoryEstimate) WorkerEstimate {
 	capacitySec := float64(n) * secondsPerHour
 	reportCapacitySec := capacitySec * reportShare
@@ -275,8 +330,6 @@ func computeWorkerEstimate(n int, reportShare float64, cats []CategoryEstimate) 
 		cat := c
 		cat.CatCapacitySec = catCapacitySec
 		cat.Jobs = jobs
-		cat.JobsLow = jobs * (1 - estimateMargin)
-		cat.JobsHigh = jobs * (1 + estimateMargin)
 		updated[i] = cat
 		totalJobs += jobs
 	}
@@ -285,8 +338,6 @@ func computeWorkerEstimate(n int, reportShare float64, cats []CategoryEstimate) 
 		Workers:    n,
 		Categories: updated,
 		TotalJobs:  totalJobs,
-		TotalLow:   totalJobs * (1 - estimateMargin),
-		TotalHigh:  totalJobs * (1 + estimateMargin),
 	}
 }
 

@@ -343,5 +343,4 @@ headline results, DEBUG for intermediate arithmetic:
 - **Per-category demand** is intentionally out of scope (too sparse to be meaningful per
   category-hour).
 - The per-hour basis assumes workers run continuously; a per-day figure is `× 24` if ever useful.
-</content>
-</invoke>
+

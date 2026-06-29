@@ -27,6 +27,7 @@ func init() {
 	runBgtasksCmd.Flags().String("from", "", "include tasks submitted on or after this date (YYYY-MM-DD, UTC)")
 	runBgtasksCmd.Flags().String("to", "", "include tasks submitted on or before this date (YYYY-MM-DD, UTC)")
 	runBgtasksCmd.Flags().String("report-name", "report-bgtasks", "output report filename (without .html extension)")
+	runBgtasksCmd.Flags().IntSlice("estimate-workers", nil, "estimate analyses per hour for these worker counts (comma-separated, e.g. 4,8,16)")
 
 	runCmd.AddCommand(runBgtasksCmd)
 	rootCmd.AddCommand(runCmd)
@@ -54,8 +55,12 @@ func runRunBgtasksCmd(cmd *cobra.Command, _ []string) error {
 	from, _ := cmd.Flags().GetString("from")
 	to, _ := cmd.Flags().GetString("to")
 	reportName, _ := cmd.Flags().GetString("report-name")
+	estimateWorkers, _ := cmd.Flags().GetIntSlice("estimate-workers")
+	if err := validateEstimateWorkers(estimateWorkers); err != nil {
+		return err
+	}
 	if err := runCollect([]string{"bgtasks"}, url, token, outDir, parallel); err != nil {
 		return err
 	}
-	return runAnalyze([]string{"bgtasks"}, outDir, reportDir, from, to, withReportName(reportName))
+	return runAnalyze([]string{"bgtasks"}, outDir, reportDir, from, to, withReportName(reportName), withEstimateWorkers(estimateWorkers))
 }

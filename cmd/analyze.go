@@ -31,6 +31,7 @@ func init() {
 	analyzeBgtasksCmd.Flags().String("from", "", "include tasks submitted on or after this date (YYYY-MM-DD, UTC)")
 	analyzeBgtasksCmd.Flags().String("to", "", "include tasks submitted on or before this date (YYYY-MM-DD, UTC)")
 	analyzeBgtasksCmd.Flags().String("report-name", "report-bgtasks", "output report filename (without .html extension)")
+	analyzeBgtasksCmd.Flags().IntSlice("estimate-workers", nil, "estimate analyses per hour for these worker counts (comma-separated, e.g. 4,8,16)")
 
 	analyzeCmd.AddCommand(analyzeBgtasksCmd)
 	rootCmd.AddCommand(analyzeCmd)
@@ -48,10 +49,14 @@ func runAnalyzeBgtasksCmd(cmd *cobra.Command, _ []string) error {
 	from, _ := cmd.Flags().GetString("from")
 	to, _ := cmd.Flags().GetString("to")
 	reportName, _ := cmd.Flags().GetString("report-name")
+	estimateWorkers, _ := cmd.Flags().GetIntSlice("estimate-workers")
 	if err := validateReportName(reportName); err != nil {
 		return err
 	}
-	return runAnalyze([]string{"bgtasks"}, dir, reportDir, from, to, withReportName(reportName))
+	if err := validateEstimateWorkers(estimateWorkers); err != nil {
+		return err
+	}
+	return runAnalyze([]string{"bgtasks"}, dir, reportDir, from, to, withReportName(reportName), withEstimateWorkers(estimateWorkers))
 }
 
 func validateReportName(name string) error {
@@ -67,14 +72,28 @@ func validateReportName(name string) error {
 	return nil
 }
 
+func validateEstimateWorkers(workers []int) error {
+	for _, w := range workers {
+		if w < 1 {
+			return fmt.Errorf("--estimate-workers: worker counts must be >= 1, got %d", w)
+		}
+	}
+	return nil
+}
+
 type analyzeOptions struct {
-	reportName string
+	reportName      string
+	estimateWorkers []int
 }
 
 type analyzeOption func(*analyzeOptions)
 
 func withReportName(name string) analyzeOption {
 	return func(o *analyzeOptions) { o.reportName = name }
+}
+
+func withEstimateWorkers(workers []int) analyzeOption {
+	return func(o *analyzeOptions) { o.estimateWorkers = workers }
 }
 
 func runAnalyze(targets []string, dir, reportDir, from, to string, opts ...analyzeOption) error {
@@ -95,7 +114,7 @@ func runAnalyze(targets []string, dir, reportDir, from, to string, opts ...analy
 	for _, target := range targets {
 		switch target {
 		case "bgtasks":
-			if err := analyzer.AnalyzeBgTasks(dir, reportDir, o.reportName, fromTime, toTime, logger); err != nil {
+			if err := analyzer.AnalyzeBgTasks(dir, reportDir, o.reportName, fromTime, toTime, logger, o.estimateWorkers); err != nil {
 				return fmt.Errorf("analyze bgtasks: %w", err)
 			}
 		default:

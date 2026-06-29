@@ -15,6 +15,38 @@ func TestAnalyzeHelp_ContainsDataDir(t *testing.T) {
 	}
 }
 
+func TestValidateEstimateWorkers(t *testing.T) {
+	cases := []struct {
+		input       []int
+		wantErr     bool
+		errContains string
+	}{
+		{input: []int{}, wantErr: false},
+		{input: []int{1}, wantErr: false},
+		{input: []int{1, 2, 4}, wantErr: false},
+		{input: []int{0}, wantErr: true, errContains: ">= 1"},
+		{input: []int{-1}, wantErr: true, errContains: ">= 1"},
+		{input: []int{2, 0, 4}, wantErr: true, errContains: ">= 1"},
+	}
+
+	for _, tc := range cases {
+		err := validateEstimateWorkers(tc.input)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("validateEstimateWorkers(%v): expected error, got nil", tc.input)
+				continue
+			}
+			if !strings.Contains(err.Error(), tc.errContains) {
+				t.Errorf("validateEstimateWorkers(%v): error %q does not contain %q", tc.input, err.Error(), tc.errContains)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("validateEstimateWorkers(%v): unexpected error: %v", tc.input, err)
+			}
+		}
+	}
+}
+
 func TestValidateReportName(t *testing.T) {
 	cases := []struct {
 		input       string

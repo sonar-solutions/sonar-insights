@@ -3,7 +3,7 @@ spec: 032
 title: Capacity Estimate Refinement — mean cost + demand profile
 author: lfrystak
 date: 2026-06-29
-draft-status: draft
+draft-status: ready
 impl-status: not-started
 prerequisites: [031]
 amends: 031
@@ -69,10 +69,10 @@ Illustrative INFO output for `--estimate-workers 4,8` (numbers illustrative):
 INFO  capacity estimate: REPORT (project analysis) accounts for 62.4% of non-ISSUE_SYNC compute time
 INFO  capacity estimate: REPORT demand averaged ≈ 38 analyses/hour, peaking at ≈ 210/hour (over 31 days)
 INFO  capacity estimate (per hour) for 4 workers: capacity ≈ 1240 analyses/hour
-INFO    XXS (0-1s): ≈ 610   XS (1-3s): ≈ 240   S (3-5s): ≈ 180   M (5-10s): ≈ 120   L (10-30s): ≈ 70   XL (30-60s): ≈ 18   XXL (60-180s): ≈ 2   XXXL (180-540s): no tasks
+INFO    XXS (0-1s): ≈ 610   XS (1-3s): ≈ 240   S (3-5s): ≈ 180   M (5-10s): ≈ 120   L (10-30s): ≈ 70   XL (30-60s): ≈ 18   XXL (60-180s): ≈ 2   XXXL (> 180s): no tasks
 INFO    verdict: covers your peak hour (≈ 210/hr) with ≈ 1030/hr to spare
 INFO  capacity estimate (per hour) for 8 workers: capacity ≈ 2480 analyses/hour
-INFO    XXS (0-1s): ≈ 1220   ...   XXXL (180-540s): no tasks
+INFO    XXS (0-1s): ≈ 1220   ...   XXXL (> 180s): no tasks
 INFO    verdict: covers your peak hour (≈ 210/hr) with ≈ 2270/hr to spare
 ```
 
@@ -127,8 +127,9 @@ Measure how REPORT analyses arrive over time, using `SubmittedAt`:
    ```
    The peak uses the **95th percentile** of hourly counts rather than the single busiest hour, so a
    one-off bulk re-analysis does not distort the headline peak. The absolute busiest hour is logged
-   at DEBUG for transparency. Reuse the existing percentile helper if one is present in the package;
-   otherwise nearest-rank is acceptable.
+   at DEBUG for transparency. Reuse `mathutil.CalculatePercentile` (already used by `metrics.go` /
+   `capacity.go`); call it with `0.95`. Note it interpolates linearly between ranks (it is not
+   nearest-rank), so test expectations must be computed the same way.
 4. **Sufficiency guard.** If `observedHours < minObservedHours` (24), the dataset is too short to
    characterise a peak hour reliably: set `Demand.Available = false`, still report
    `avgDemandPerHour`, and omit the peak figure and the peak comparison from the verdict (see Step
@@ -153,8 +154,10 @@ representativeSec_c = ( Σ_{t∈R_c} ExecutionTimeMs / |R_c| ) / 1000      # sec
 - **Removed from 031:** rounding to 0.1s, the mode, and the tie-break rule. There is no rounding
   granularity constant any more.
 
-Rationale (record in code/spec): with the mean, `totalJobs(n)` algebraically reduces to
-`reportCapacitySec(n) ÷ averageReportCost` — the category split introduces no bias. The mode used
+Rationale (record in code/spec): let `averageReportCost = (Σ_{t∈R} ExecutionTimeMs / |R|) / 1000`
+(the mean cost over **all** REPORT tasks, in seconds). With the per-category mean, `totalJobs(n)`
+algebraically reduces to `reportCapacitySec(n) ÷ averageReportCost` — the category split introduces
+no bias (this holds exactly only when no category is clamped to the cost floor). The mode used
 in 031 sits below the mean for right-skewed execution-time distributions and so over-estimated
 throughput, worst for the wide buckets (L/XL/XXL/XXXL). This resolves 031's "mode appropriateness"
 open question.
@@ -261,7 +264,7 @@ worker estimates; `logCapacityEstimate` formats the verdict strings.
   plus one verdict line per worker. The report is unchanged.
 - The representative cost per category equals the mean of that category's execution times (clamped
   to 0.1s), and `Σ jobs_c == totalJobs` equals `reportCapacitySec ÷ averageReportCost` within float
-  tolerance (the mean identity).
+  tolerance (the mean identity) — exact when no category hit the cost floor.
 - A demand line is logged with `avgDemandPerHour` and, when `Demand.Available`, `peakDemandPerHour`.
 - `ISSUE_SYNC` excluded from `reportShare`, every category sum, **and** the demand profile.
 - No band fields, constants, or ±20% strings remain anywhere in the feature.
@@ -271,8 +274,9 @@ worker estimates; `logCapacityEstimate` formats the verdict strings.
 ### Test scenarios
 - **Mean cost:** a category with known execution times → `representativeSec_c` is their mean;
   `jobs_c(n)` matches `catCapacitySec_c ÷ mean`.
-- **Mean identity:** hand-built REPORT set → `totalJobs(n) == reportCapacitySec(n) ÷ avgCost`
-  (within tolerance), confirming the category split is unbiased.
+- **Mean identity:** hand-built REPORT set with no sub-floor category (so no clamp fires) →
+  `totalJobs(n) == reportCapacitySec(n) ÷ avgCost` (within tolerance), confirming the category split
+  is unbiased.
 - **Mode tests removed:** delete 031's tie-break and 0.1s-rounding tests.
 - **Cost floor:** a category of only sub-100ms tasks → `representativeSec_c == 0.1`,
   `FloorApplied == true`, finite job count.
